@@ -1,5 +1,6 @@
 SET(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:/usr/local/lib/pkgconfig:/opt/local/lib/pkgconfig:/usr/local/share/pkgconfig")
 
+add_compile_options(-std=c++11)
 pods_install_pkg_config_file(rrtstar
     CFLAGS
     LIBS  -lrrtstar
