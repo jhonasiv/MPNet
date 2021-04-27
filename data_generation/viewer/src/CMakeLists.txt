@@ -19,7 +19,8 @@ pods_use_pkg_config_packages(viewer viewer
 	bot2-core 
 	bot2-vis 
 	bot2-lcmgl-client
-	renderers)
+	renderers
+	gthread-2.0)
 
 target_link_libraries(viewer
     ${GTK2_LDFLAGS}

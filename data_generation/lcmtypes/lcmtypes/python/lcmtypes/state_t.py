@@ -12,6 +12,10 @@ import struct
 class state_t(object):
     __slots__ = ["x", "y", "z"]
 
+    __typenames__ = ["double", "double", "double"]
+
+    __dimensions__ = [None, None, None]
+
     def __init__(self):
         self.x = 0.0
         self.y = 0.0
@@ -46,7 +50,7 @@ class state_t(object):
     def _get_hash_recursive(parents):
         if state_t in parents: return 0
         tmphash = (0x573f2fdd2f76508f) & 0xffffffffffffffff
-        tmphash  = (((tmphash<<1)&0xffffffffffffffff)  + (tmphash>>63)) & 0xffffffffffffffff
+        tmphash  = (((tmphash<<1)&0xffffffffffffffff) + (tmphash>>63)) & 0xffffffffffffffff
         return tmphash
     _get_hash_recursive = staticmethod(_get_hash_recursive)
     _packed_fingerprint = None

@@ -14,6 +14,10 @@ import lcmtypes.state_t
 class vertex_t(object):
     __slots__ = ["state"]
 
+    __typenames__ = ["lcmtypes.state_t"]
+
+    __dimensions__ = [None]
+
     def __init__(self):
         self.state = lcmtypes.state_t()
 
@@ -48,7 +52,7 @@ class vertex_t(object):
         if vertex_t in parents: return 0
         newparents = parents + [vertex_t]
         tmphash = (0x780573746198cdac+ lcmtypes.state_t._get_hash_recursive(newparents)) & 0xffffffffffffffff
-        tmphash  = (((tmphash<<1)&0xffffffffffffffff)  + (tmphash>>63)) & 0xffffffffffffffff
+        tmphash  = (((tmphash<<1)&0xffffffffffffffff) + (tmphash>>63)) & 0xffffffffffffffff
         return tmphash
     _get_hash_recursive = staticmethod(_get_hash_recursive)
     _packed_fingerprint = None

@@ -16,6 +16,10 @@ import lcmtypes.edge_t
 class graph_t(object):
     __slots__ = ["num_vertices", "vertices", "num_edges", "edges"]
 
+    __typenames__ = ["int32_t", "lcmtypes.vertex_t", "int32_t", "lcmtypes.edge_t"]
+
+    __dimensions__ = [None, ["num_vertices"], None, ["num_edges"]]
+
     def __init__(self):
         self.num_vertices = 0
         self.vertices = []
@@ -66,7 +70,7 @@ class graph_t(object):
         if graph_t in parents: return 0
         newparents = parents + [graph_t]
         tmphash = (0x49189ad7b639b453+ lcmtypes.vertex_t._get_hash_recursive(newparents)+ lcmtypes.edge_t._get_hash_recursive(newparents)) & 0xffffffffffffffff
-        tmphash  = (((tmphash<<1)&0xffffffffffffffff)  + (tmphash>>63)) & 0xffffffffffffffff
+        tmphash  = (((tmphash<<1)&0xffffffffffffffff) + (tmphash>>63)) & 0xffffffffffffffff
         return tmphash
     _get_hash_recursive = staticmethod(_get_hash_recursive)
     _packed_fingerprint = None

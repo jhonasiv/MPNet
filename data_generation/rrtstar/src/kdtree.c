@@ -1,10 +1,8 @@
 /*
 This file is part of ``kdtree'', a library for working with kd-trees.
-Copyright (C) 2007-2009 John Tsiombikas <nuclear@siggraph.org>
-
+Copyright (C) 2007-2011 John Tsiombikas <nuclear@member.fsf.org>
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
-
 1. Redistributions of source code must retain the above copyright notice, this
    list of conditions and the following disclaimer.
 2. Redistributions in binary form must reproduce the above copyright notice,
@@ -12,7 +10,6 @@ modification, are permitted provided that the following conditions are met:
    and/or other materials provided with the distribution.
 3. The name of the author may not be used to endorse or promote products
    derived from this software without specific prior written permission.
-
 THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
 WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
@@ -25,6 +22,11 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
 OF SUCH DAMAGE.
 */
 /* single nearest neighbor search written by Tamas Nepusz <tamas@cs.rhul.ac.uk> */
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,35 +51,35 @@ OF SUCH DAMAGE.
 #endif	/* use list node allocator */
 
 struct kdhyperrect {
-	int dim;
-	double *min, *max;              /* minimum/maximum coords */
+  int dim;
+  double *min, *max;              /* minimum/maximum coords */
 };
 
 struct kdnode {
-	double *pos;
-	int dir;
-	void *data;
+  double *pos;
+  int dir;
+  void *data;
 
-	struct kdnode *left, *right;	/* negative/positive side */
+  struct kdnode *left, *right;	/* negative/positive side */
 };
 
 struct res_node {
-	struct kdnode *item;
-	double dist_sq;
-	struct res_node *next;
+  struct kdnode *item;
+  double dist_sq;
+  struct res_node *next;
 };
 
 struct kdtree {
-	int dim;
-	struct kdnode *root;
-	struct kdhyperrect *rect;
-	void (*destr)(void*);
+  int dim;
+  struct kdnode *root;
+  struct kdhyperrect *rect;
+  void (*destr)(void*);
 };
 
 struct kdres {
-	struct kdtree *tree;
-	struct res_node *rlist, *riter;
-	int size;
+  struct kdtree *tree;
+  struct res_node *rlist, *riter;
+  int size;
 };
 
 #define SQ(x)			((x) * (x))
@@ -134,7 +136,7 @@ static void clear_rec(struct kdnode *node, void (*destr)(void*))
 
 	clear_rec(node->left, destr);
 	clear_rec(node->right, destr);
-	
+
 	if(destr) {
 		destr(node->data);
 	}
@@ -215,11 +217,11 @@ int kd_insertf(struct kdtree *tree, const float *pos, void *data)
 			bptr = buf = alloca(dim * sizeof *bptr);
 		else
 #endif
-			if(!(bptr = buf = malloc(dim * sizeof *bptr))) {
-				return -1;
-			}
+		if(!(bptr = buf = malloc(dim * sizeof *bptr))) {
+			return -1;
+		}
 	} else {
-		bptr = sbuf;
+		bptr = buf = sbuf;
 	}
 
 	while(dim-- > 0) {
@@ -230,7 +232,7 @@ int kd_insertf(struct kdtree *tree, const float *pos, void *data)
 #ifndef NO_ALLOCA
 	if(tree->dim > 256)
 #else
-	if(tree->dim > 16)
+		if(tree->dim > 16)
 #endif
 		free(buf);
 	return res;
@@ -287,10 +289,60 @@ static int find_nearest(struct kdnode *node, const double *pos, double range, st
 	return added_res;
 }
 
+#if 0
+static int find_nearest_n(struct kdnode *node, const double *pos, double range, int num, struct rheap *heap, int dim)
+{
+	double dist_sq, dx;
+	int i, ret, added_res = 0;
+
+	if(!node) return 0;
+
+	/* if the photon is close enough, add it to the result heap */
+	dist_sq = 0;
+	for(i=0; i<dim; i++) {
+		dist_sq += SQ(node->pos[i] - pos[i]);
+	}
+	if(dist_sq <= range_sq) {
+		if(heap->size >= num) {
+			/* get furthest element */
+			struct res_node *maxelem = rheap_get_max(heap);
+
+			/* and check if the new one is closer than that */
+			if(maxelem->dist_sq > dist_sq) {
+				rheap_remove_max(heap);
+
+				if(rheap_insert(heap, node, dist_sq) == -1) {
+					return -1;
+				}
+				added_res = 1;
+
+				range_sq = dist_sq;
+			}
+		} else {
+			if(rheap_insert(heap, node, dist_sq) == -1) {
+				return =1;
+			}
+			added_res = 1;
+		}
+	}
+
+
+	/* find signed distance from the splitting plane */
+	dx = pos[node->dir] - node->pos[node->dir];
+
+	ret = find_nearest_n(dx <= 0.0 ? node->left : node->right, pos, range, num, heap, dim);
+	if(ret >= 0 && fabs(dx) < range) {
+		added_res += ret;
+		ret = find_nearest_n(dx <= 0.0 ? node->right : node->left, pos, range, num, heap, dim);
+	}
+
+}
+#endif
+
 static void kd_nearest_i(struct kdnode *node, const double *pos, struct kdnode **result, double *result_dist_sq, struct kdhyperrect* rect)
 {
 	int dir = node->dir;
-	int i, side;
+	int i;
 	double dummy, dist_sq;
 	struct kdnode *nearer_subtree, *farther_subtree;
 	double *nearer_hyperrect_coord, *farther_hyperrect_coord;
@@ -302,13 +354,11 @@ static void kd_nearest_i(struct kdnode *node, const double *pos, struct kdnode *
 		farther_subtree = node->right;
 		nearer_hyperrect_coord = rect->max + dir;
 		farther_hyperrect_coord = rect->min + dir;
-		side = 0;
 	} else {
 		nearer_subtree = node->right;
 		farther_subtree = node->left;
 		nearer_hyperrect_coord = rect->min + dir;
 		farther_hyperrect_coord = rect->max + dir;
-		side = 1;
 	}
 
 	if (nearer_subtree) {
@@ -416,11 +466,11 @@ struct kdres *kd_nearestf(struct kdtree *tree, const float *pos)
 			bptr = buf = alloca(dim * sizeof *bptr);
 		else
 #endif
-			if(!(bptr = buf = malloc(dim * sizeof *bptr))) {
-				return 0;
-			}
+		if(!(bptr = buf = malloc(dim * sizeof *bptr))) {
+			return 0;
+		}
 	} else {
-		bptr = sbuf;
+		bptr = buf = sbuf;
 	}
 
 	while(dim-- > 0) {
@@ -431,7 +481,7 @@ struct kdres *kd_nearestf(struct kdtree *tree, const float *pos)
 #ifndef NO_ALLOCA
 	if(tree->dim > 256)
 #else
-	if(tree->dim > 16)
+		if(tree->dim > 16)
 #endif
 		free(buf);
 	return res;
@@ -454,6 +504,30 @@ struct kdres *kd_nearest3f(struct kdtree *tree, float x, float y, float z)
 	pos[2] = z;
 	return kd_nearest(tree, pos);
 }
+
+/* ---- nearest N search ---- */
+/*
+static kdres *kd_nearest_n(struct kdtree *kd, const double *pos, int num)
+{
+	int ret;
+	struct kdres *rset;
+	if(!(rset = malloc(sizeof *rset))) {
+		return 0;
+	}
+	if(!(rset->rlist = alloc_resnode())) {
+		free(rset);
+		return 0;
+	}
+	rset->rlist->next = 0;
+	rset->tree = kd;
+	if((ret = find_nearest_n(kd->root, pos, range, num, rset->rlist, kd->dim)) == -1) {
+		kd_res_free(rset);
+		return 0;
+	}
+	rset->size = ret;
+	kd_res_rewind(rset);
+	return rset;
+}*/
 
 struct kdres *kd_nearest_range(struct kdtree *kd, const double *pos, double range)
 {
@@ -492,11 +566,11 @@ struct kdres *kd_nearest_rangef(struct kdtree *kd, const float *pos, float range
 			bptr = buf = alloca(dim * sizeof *bptr);
 		else
 #endif
-			if(!(bptr = buf = malloc(dim * sizeof *bptr))) {
-				return 0;
-			}
+		if(!(bptr = buf = malloc(dim * sizeof *bptr))) {
+			return 0;
+		}
 	} else {
-		bptr = sbuf;
+		bptr = buf = sbuf;
 	}
 
 	while(dim-- > 0) {
@@ -507,7 +581,7 @@ struct kdres *kd_nearest_rangef(struct kdtree *kd, const float *pos, float range
 #ifndef NO_ALLOCA
 	if(kd->dim > 256)
 #else
-	if(kd->dim > 16)
+		if(kd->dim > 16)
 #endif
 		free(buf);
 	return res;
@@ -587,9 +661,10 @@ void *kd_res_itemf(struct kdres *rset, float *pos)
 void *kd_res_item3(struct kdres *rset, double *x, double *y, double *z)
 {
 	if(rset->riter) {
-		if(*x) *x = rset->riter->item->pos[0];
-		if(*y) *y = rset->riter->item->pos[1];
-		if(*z) *z = rset->riter->item->pos[2];
+		if(x) *x = rset->riter->item->pos[0];
+		if(y) *y = rset->riter->item->pos[1];
+		if(z) *z = rset->riter->item->pos[2];
+		return rset->riter->item->data;
 	}
 	return 0;
 }
@@ -597,9 +672,10 @@ void *kd_res_item3(struct kdres *rset, double *x, double *y, double *z)
 void *kd_res_item3f(struct kdres *rset, float *x, float *y, float *z)
 {
 	if(rset->riter) {
-		if(*x) *x = rset->riter->item->pos[0];
-		if(*y) *y = rset->riter->item->pos[1];
-		if(*z) *z = rset->riter->item->pos[2];
+		if(x) *x = rset->riter->item->pos[0];
+		if(y) *y = rset->riter->item->pos[1];
+		if(z) *z = rset->riter->item->pos[2];
+		return rset->riter->item->data;
 	}
 	return 0;
 }
@@ -727,6 +803,7 @@ static void free_resnode(struct res_node *node)
 
 
 /* inserts the item. if dist_sq is >= 0, then do an ordered insert */
+/* TODO make the ordering code use heapsort */
 static int rlist_insert(struct res_node *list, struct kdnode *item, double dist_sq)
 {
 	struct res_node *rnode;

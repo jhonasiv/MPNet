@@ -12,6 +12,10 @@ import struct
 class region_3d_t(object):
     __slots__ = ["center", "size"]
 
+    __typenames__ = ["double", "double"]
+
+    __dimensions__ = [[3], [3]]
+
     def __init__(self):
         self.center = [ 0.0 for dim0 in range(3) ]
         self.size = [ 0.0 for dim0 in range(3) ]
@@ -47,7 +51,7 @@ class region_3d_t(object):
     def _get_hash_recursive(parents):
         if region_3d_t in parents: return 0
         tmphash = (0x94830fc8d7404191) & 0xffffffffffffffff
-        tmphash  = (((tmphash<<1)&0xffffffffffffffff)  + (tmphash>>63)) & 0xffffffffffffffff
+        tmphash  = (((tmphash<<1)&0xffffffffffffffff) + (tmphash>>63)) & 0xffffffffffffffff
         return tmphash
     _get_hash_recursive = staticmethod(_get_hash_recursive)
     _packed_fingerprint = None

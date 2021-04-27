@@ -14,6 +14,10 @@ import lcmtypes.state_t
 class trajectory_t(object):
     __slots__ = ["num_states", "states"]
 
+    __typenames__ = ["int32_t", "lcmtypes.state_t"]
+
+    __dimensions__ = [None, ["num_states"]]
+
     def __init__(self):
         self.num_states = 0
         self.states = []
@@ -54,7 +58,7 @@ class trajectory_t(object):
         if trajectory_t in parents: return 0
         newparents = parents + [trajectory_t]
         tmphash = (0x67039c5ec5ece44f+ lcmtypes.state_t._get_hash_recursive(newparents)) & 0xffffffffffffffff
-        tmphash  = (((tmphash<<1)&0xffffffffffffffff)  + (tmphash>>63)) & 0xffffffffffffffff
+        tmphash  = (((tmphash<<1)&0xffffffffffffffff) + (tmphash>>63)) & 0xffffffffffffffff
         return tmphash
     _get_hash_recursive = staticmethod(_get_hash_recursive)
     _packed_fingerprint = None

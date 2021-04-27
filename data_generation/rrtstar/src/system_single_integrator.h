@@ -301,7 +301,7 @@ namespace SingleIntegrator {
          *
          */
         int extendTo (State &stateFromIn, State &stateTowardsIn, 
-                      Trajectory &trajectoryOut, bool &exactConnectionOut); 
+                      Trajectory &trajectoryOut, bool &exactConnectionOut);
         int steerTo (State &stateFromIn, State &stateTowardsIn);
         int optimization (double* stateA, double* stateC);
         /*!

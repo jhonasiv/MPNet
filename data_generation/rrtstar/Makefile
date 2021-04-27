@@ -18,7 +18,7 @@ endif
 # Default to a release build.  If you want to enable debugging flags, run
 # "make BUILD_TYPE=Debug"
 ifeq "$(BUILD_TYPE)" ""
-BUILD_TYPE="Release"
+BUILD_TYPE="Debug"
 endif
 
 all: pod-build/Makefile

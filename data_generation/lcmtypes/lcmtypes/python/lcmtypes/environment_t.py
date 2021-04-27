@@ -14,6 +14,10 @@ import lcmtypes.region_3d_t
 class environment_t(object):
     __slots__ = ["operating", "goal", "num_obstacles", "obstacles"]
 
+    __typenames__ = ["lcmtypes.region_3d_t", "lcmtypes.region_3d_t", "int32_t", "lcmtypes.region_3d_t"]
+
+    __dimensions__ = [None, None, None, ["num_obstacles"]]
+
     def __init__(self):
         self.operating = lcmtypes.region_3d_t()
         self.goal = lcmtypes.region_3d_t()
@@ -62,7 +66,7 @@ class environment_t(object):
         if environment_t in parents: return 0
         newparents = parents + [environment_t]
         tmphash = (0x8caabc2a2ba0f9c7+ lcmtypes.region_3d_t._get_hash_recursive(newparents)+ lcmtypes.region_3d_t._get_hash_recursive(newparents)+ lcmtypes.region_3d_t._get_hash_recursive(newparents)) & 0xffffffffffffffff
-        tmphash  = (((tmphash<<1)&0xffffffffffffffff)  + (tmphash>>63)) & 0xffffffffffffffff
+        tmphash  = (((tmphash<<1)&0xffffffffffffffff) + (tmphash>>63)) & 0xffffffffffffffff
         return tmphash
     _get_hash_recursive = staticmethod(_get_hash_recursive)
     _packed_fingerprint = None
