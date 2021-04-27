@@ -8,7 +8,6 @@
 
 #include <lcm/lcm.h>
 #include <random>
-#include <cnpy.h>
 #include <lcmtypes/lcmtypes.h>
 
 #include "rrts.hpp"
@@ -18,7 +17,6 @@
 #include <string>
 #include <sys/stat.h>
 #include <time.h>
-#include <memory>
 
 using namespace RRTstar;
 using namespace SingleIntegrator;
