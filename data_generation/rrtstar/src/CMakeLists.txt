@@ -10,7 +10,8 @@ pods_install_pkg_config_file(rrtstar
 include_directories(
     ${LCM_INCLUDE_DIRS})
 
-add_executable(rrtstar rrts_main.cpp system_single_integrator.cpp kdtree.c)
+find_package(google_cloud_cpp_storage REQUIRED)
+add_executable(rrtstar rrts_main.cpp system_single_integrator.cpp kdtree.c )
 
 pods_use_pkg_config_packages(rrtstar
     bot2-core
@@ -18,4 +19,4 @@ pods_use_pkg_config_packages(rrtstar
 
 pods_install_executables(rrtstar)
 
-target_link_libraries(rrtstar -llcm )
+target_link_libraries(rrtstar -llcm google-cloud-cpp::storage)

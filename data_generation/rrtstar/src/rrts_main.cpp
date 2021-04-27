@@ -9,6 +9,7 @@
 #include <lcm/lcm.h>
 #include <random>
 #include <lcmtypes/lcmtypes.h>
+#include <google/cloud/storage/client.h>
 
 #include "rrts.hpp"
 #include "system_single_integrator.h"
@@ -46,6 +47,7 @@ bool check(double *first, double *second) {
 		return false;
 	}
 }
+namespace gcs = google::cloud::storage;
 
 int size = 50000;
 
@@ -53,15 +55,16 @@ int publishTree(lcm_t *lcm, planner_t &planner, System &system);
 
 int publishPC(lcm_t *lcm, double nodes[8000][2], int sze, System &system);
 
-int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod, string filepath);
+int publishTraj(lcm_t *lcm,
+                planner_t &planner,
+                System &system,
+                int num,
+                string fod,
+                google::cloud::StatusOr <gcs::Client> client);
 // lcm_t *lcm, region& regionOperating, region& regionGoal,list<region*>& obstacles
 // int publishEnvironment (lcm_t *lcm);
 
 int publishEnvironment(lcm_t *lcm, region &regionOperating, region &regionGoal, list<region *> &obstacles);
-
-// ofstream out("nodes1", ios::out | ios::binary);
-// double nodes[50000][2];
-string env_path = "env";
 
 pair<float, float> getFreeSpacePoint(vector <pair<float, float>> perm);
 
@@ -103,7 +106,7 @@ bool validPoint(float x, float y, vector <pair<float, float>> perm, float obsSiz
 	return true;
 }
 
-auto readCsv(std::string filename) {
+auto readCsv(gcs::ObjectReadStream *myFile) {
 	// Reads a CSV file into a vector of <string, vector<int>> pairs where
 	// each pair represents <column name, column values>
 
@@ -111,22 +114,13 @@ auto readCsv(std::string filename) {
 	vector < vector < pair < float, float>>> perm;
 	vector <pair<float, float>> obstacles;
 
-	// Create an input filestream
-	std::ifstream myFile(filename);
-
-	// Make sure the file is open
-	if (!myFile.is_open())
-	{
-		throw std::runtime_error("Could not open file " + filename);
-	}
-
 	// Helper vars
 	std::string line;
 	std::string val;
 
 	char delim = ',';
 	// Read data, line by line
-	while (std::getline(myFile, line))
+	while (std::getline(*myFile, line))
 	{
 		// Create a stringstream of the current line
 		obstacles.clear();
@@ -154,7 +148,7 @@ auto readCsv(std::string filename) {
 	obstacles.clear();
 
 	// Close file
-	myFile.close();
+	myFile->Close();
 
 	return perm;
 }
@@ -175,27 +169,32 @@ void printStartGoal(pair<float, float> start, pair<float, float> goal) {
 
 int main(int argc, char **argv) {
 
-	int env_no = 0;
+	google::cloud::StatusOr <gcs::Client> client = gcs::Client::CreateDefaultClient();
+	if (!client)
+	{
+		std::cerr << "Failed to create Storage Client, status=" << client.status()
+		          << "\n";
+		return 1;
+	}
+	int startId = 0;
 	if (argc == 2)
 	{
-		env_no = atoi(argv[1]);
+		startId = atoi(argv[1]);
 	}
-	double nodes[size][2]; // nodes from obstacle-free space that will become random start-goal pairs
 
 	srand(time(0));
 
-	mkdir(env_path.c_str(), ACCESSPERMS); // create folder with env label to store generated trajectories
-	std::string filepath = __FILE__;
-	std::size_t strIdx = filepath.find("MPNet");
-	filepath = filepath.substr(0, strIdx + 5);
+	gcs::ObjectReadStream reader = client->ReadObject("mpnet-bucket", "obs/perm.csv");
 
-//	// load obstacle locations
-//	vector <pair<float, float>> obstacles = readCsv(filepath + "/obs/center.csv")[0];
-
+	if (!reader)
+	{
+		std::cerr << "Error reading object: " << reader.status() << "\n";
+		return 1;
+	}
 
 	// We drop 7 obstacle blocks in the workspace to generate random environments using 20P7=77520
 	// permutations. Note that we can have now 77520 different environments but we use 110 envs only
-	vector < vector < pair < float, float>>>  perm = readCsv(filepath + "/obs/perm.csv");
+	vector < vector < pair < float, float>>>  perm = readCsv(&reader);
 
 	// start and goal region
 	/*
@@ -205,253 +204,258 @@ int main(int argc, char **argv) {
 	pair<float, float> goalPoint;
 	pair<float, float> startPoint;
 
-	string path = filepath + "/env/e" + to_string(env_no);
-	mkdir(path.c_str(), ACCESSPERMS); // create folder with env label to store generated trajectories
-	for (int idx = 0; idx < 4000; idx++)
+	for (int env_no = startId; env_no < startId + 5; env_no++)
 	{
-		cout << "idx " << idx << endl;
+		for (int idx = 0; idx < 4000; idx++)
+		{
+			cout << "idx " << idx << endl;
 
-		planner_t rrts;
+			planner_t rrts;
 
-		cout << "RRTstar is alive" << endl;
+			cout << "RRTstar is alive" << endl;
 
-		// Get lcm
-		lcm_t *lcm = bot_lcm_get_global(NULL);
+			// Get lcm
+			lcm_t *lcm = bot_lcm_get_global(NULL);
 
-		goalPoint = getFreeSpacePoint(perm[env_no]);
-		startPoint = getFreeSpacePoint(perm[env_no]);
-//		do
-//		{
-//			auto tempPoint = getFreeSpacePoint(perm[idx]);
-//			cout << "Temp Point: ";
-//			cout << tempPoint.first << ", " << tempPoint.second << endl;
-//		}
-//		while (goalPoint == startPoint);
+			goalPoint = getFreeSpacePoint(perm[env_no]);
+			startPoint = getFreeSpacePoint(perm[env_no]);
 
-		printEnv(perm[idx]);
-		printStartGoal(startPoint, goalPoint);
+			printEnv(perm[idx]);
+			printStartGoal(startPoint, goalPoint);
 
-		// Create the dynamical system
-		System system;
+			// Create the dynamical system
+			System system;
 
-		// Three dimensional configuration space
-		system.setNumDimensions(2);
-		// Define the operating region
-		system.regionOperating.setNumDimensions(2);
-		system.regionOperating.center[0] = 0.0;
-		system.regionOperating.center[1] = 0.0;
+			// Three dimensional configuration space
+			system.setNumDimensions(2);
+			// Define the operating region
+			system.regionOperating.setNumDimensions(2);
+			system.regionOperating.center[0] = 0.0;
+			system.regionOperating.center[1] = 0.0;
 //		system.regionOperating.center[2] = 0.0;
-		system.regionOperating.size[0] = 40.0;
-		system.regionOperating.size[1] = 40.0;
+			system.regionOperating.size[0] = 40.0;
+			system.regionOperating.size[1] = 40.0;
 //		system.regionOperating.size[2] = 0.0;
-		// Define the goal region
-		system.regionGoal.setNumDimensions(2);
-		system.regionGoal.center[0] = goalPoint.first;
-		system.regionGoal.center[1] = goalPoint.second;
+			// Define the goal region
+			system.regionGoal.setNumDimensions(2);
+			system.regionGoal.center[0] = goalPoint.first;
+			system.regionGoal.center[1] = goalPoint.second;
 //		system.regionGoal.center[2] = 0.0;
-		system.regionGoal.size[0] = 1.0;
-		system.regionGoal.size[1] = 1.0;
+			system.regionGoal.size[0] = 1.0;
+			system.regionGoal.size[1] = 1.0;
 //		system.regionGoal.size[2] = 0.0;
-		region *obstacle, *obstacle1, *obstacle2, *obstacle3, *obstacle4, *obstacle5, *obstacle6;
-		obstacle = new region;
-		obstacle1 = new region;
-		obstacle2 = new region;
-		obstacle3 = new region;
-		obstacle4 = new region;
-		obstacle5 = new region;
-		obstacle6 = new region;
+			region *obstacle, *obstacle1, *obstacle2, *obstacle3, *obstacle4, *obstacle5, *obstacle6;
+			obstacle = new region;
+			obstacle1 = new region;
+			obstacle2 = new region;
+			obstacle3 = new region;
+			obstacle4 = new region;
+			obstacle5 = new region;
+			obstacle6 = new region;
 
-		obstacle->setNumDimensions(2);
-		obstacle->center[0] = perm[env_no][0].first;
-		obstacle->center[1] = perm[env_no][0].second;
+			obstacle->setNumDimensions(2);
+			obstacle->center[0] = perm[env_no][0].first;
+			obstacle->center[1] = perm[env_no][0].second;
 //		obstacle->center[2] = 0.0;
-		obstacle->size[0] = 5.0;
-		obstacle->size[1] = 5.0;
+			obstacle->size[0] = 5.0;
+			obstacle->size[1] = 5.0;
 //		obstacle->size[2] = 0.0;
 
-		obstacle1->setNumDimensions(2);
-		obstacle1->center[0] = perm[env_no][1].first;
-		obstacle1->center[1] = perm[env_no][1].second;
+			obstacle1->setNumDimensions(2);
+			obstacle1->center[0] = perm[env_no][1].first;
+			obstacle1->center[1] = perm[env_no][1].second;
 //		obstacle1->center[2] = 0.0;
-		obstacle1->size[0] = 5.0;
-		obstacle1->size[1] = 5.0;
+			obstacle1->size[0] = 5.0;
+			obstacle1->size[1] = 5.0;
 //		obstacle1->size[2] = 0.0;
 
-		obstacle2->setNumDimensions(2);
-		obstacle2->center[0] = perm[env_no][2].first;
-		obstacle2->center[1] = perm[env_no][2].second;
+			obstacle2->setNumDimensions(2);
+			obstacle2->center[0] = perm[env_no][2].first;
+			obstacle2->center[1] = perm[env_no][2].second;
 //		obstacle2->center[2] = 0.0;
-		obstacle2->size[0] = 5.0;
-		obstacle2->size[1] = 5.0;
+			obstacle2->size[0] = 5.0;
+			obstacle2->size[1] = 5.0;
 //		obstacle2->size[2] = 0.0;
 
-		obstacle3->setNumDimensions(2);
-		obstacle3->center[0] = perm[env_no][3].first;
-		obstacle3->center[1] = perm[env_no][3].second;
+			obstacle3->setNumDimensions(2);
+			obstacle3->center[0] = perm[env_no][3].first;
+			obstacle3->center[1] = perm[env_no][3].second;
 //		obstacle3->center[2] = 0.0;
-		obstacle3->size[0] = 5.0;
-		obstacle3->size[1] = 5.0;
+			obstacle3->size[0] = 5.0;
+			obstacle3->size[1] = 5.0;
 //		obstacle3->size[2] = 0.0;
 
-		obstacle4->setNumDimensions(2);
-		obstacle4->center[0] = perm[env_no][4].first;
-		obstacle4->center[1] = perm[env_no][4].second;
+			obstacle4->setNumDimensions(2);
+			obstacle4->center[0] = perm[env_no][4].first;
+			obstacle4->center[1] = perm[env_no][4].second;
 //		obstacle4->center[2] = 0.0;
-		obstacle4->size[0] = 5.0;
-		obstacle4->size[1] = 5.0;
+			obstacle4->size[0] = 5.0;
+			obstacle4->size[1] = 5.0;
 //		obstacle4->size[2] = 0.0;
 
-		obstacle5->setNumDimensions(2);
-		obstacle5->center[0] = perm[env_no][5].first;
-		obstacle5->center[1] = perm[env_no][5].second;
+			obstacle5->setNumDimensions(2);
+			obstacle5->center[0] = perm[env_no][5].first;
+			obstacle5->center[1] = perm[env_no][5].second;
 //		obstacle5->center[2] = 0.0;
-		obstacle5->size[0] = 5.0;
-		obstacle5->size[1] = 5.0;
+			obstacle5->size[0] = 5.0;
+			obstacle5->size[1] = 5.0;
 //		obstacle5->size[2] = 0.0;
 
-		obstacle6->setNumDimensions(2);
-		obstacle6->center[0] = perm[env_no][6].first;
-		obstacle6->center[1] = perm[env_no][6].second;
+			obstacle6->setNumDimensions(2);
+			obstacle6->center[0] = perm[env_no][6].first;
+			obstacle6->center[1] = perm[env_no][6].second;
 //		obstacle6->center[2] = 0.0;
-		obstacle6->size[0] = 5.0;
-		obstacle6->size[1] = 5.0;
+			obstacle6->size[0] = 5.0;
+			obstacle6->size[1] = 5.0;
 //		obstacle6->size[2] = 0.0;
 
-		system.obstacles.push_front(obstacle);  // Add the obstacle to the list
-		system.obstacles.push_front(obstacle1); // Add the obstacle to the list
-		system.obstacles.push_front(obstacle2); // Add the obstacle to the list
-		system.obstacles.push_front(obstacle3); // Add the obstacle to the list
-		system.obstacles.push_front(obstacle4); // Add the obstacle to the list
-		system.obstacles.push_front(obstacle5);
-		system.obstacles.push_front(obstacle6);
+			system.obstacles.push_front(obstacle);  // Add the obstacle to the list
+			system.obstacles.push_front(obstacle1); // Add the obstacle to the list
+			system.obstacles.push_front(obstacle2); // Add the obstacle to the list
+			system.obstacles.push_front(obstacle3); // Add the obstacle to the list
+			system.obstacles.push_front(obstacle4); // Add the obstacle to the list
+			system.obstacles.push_front(obstacle5);
+			system.obstacles.push_front(obstacle6);
 
-		// Add the system to the planner
-		rrts.setSystem(system);
+			// Add the system to the planner
+			rrts.setSystem(system);
 
 //		publishEnvironment(lcm, system.regionOperating, system.regionGoal, system.obstacles);
-		// Set up the root vertex
-		vertex_t &root = rrts.getRootVertex();
-		State &rootState = root.getState();
+			// Set up the root vertex
+			vertex_t &root = rrts.getRootVertex();
+			State &rootState = root.getState();
 
-		// Define start state
-		rootState[0] = startPoint.first;
-		rootState[1] = startPoint.second;
+			// Define start state
+			rootState[0] = startPoint.first;
+			rootState[1] = startPoint.second;
 
-		// Initialize the planner
-		rrts.initialize();
+			// Initialize the planner
+			rrts.initialize();
 
-		// This parameter should be larger than 1.5 for asymptotic
-		//   optimality. Larger values will weigh on optimization
-		//   rather than exploration in the RRT* algorithm. Lower
-		//   values, such as 0.1, should recover the RRT.
-		rrts.setGamma(1.5);
+			// This parameter should be larger than 1.5 for asymptotic
+			//   optimality. Larger values will weigh on optimization
+			//   rather than exploration in the RRT* algorithm. Lower
+			//   values, such as 0.1, should recover the RRT.
+			rrts.setGamma(1.5);
 
-		clock_t start = clock();
-		int j = 0;
-		double node[2];
+			clock_t start = clock();
+			int j = 0;
+			double node[2];
 
-		// random obstacle-free nodes generation. These nodes were generated to form random start and goal
-		// pairs.
+			// random obstacle-free nodes generation. These nodes were generated to form random start and goal
+			// pairs.
 
 
-		// p-rrt* path generation
-		double cost = 1000;
-		int k = 0;
-		int c = 0, cp = 0;
-		for (int j = 0; j <= 100000; j += 2000)
-		{
-
-			int limit = 5000 + j;
-
-			while (k < limit)
+			// p-rrt* path generation
+			double cost = 1000;
+			int k = 0;
+			int c = 0, cp = 0;
+			for (int j = 0; j <= 100000; j += 2000)
 			{
 
-				rrts.iteration(node, -1, -1);
-				k++;
-			}
-			vertex_t &vertexBest = rrts.getBestVertex();
-			if (&vertexBest != NULL)
-			{
-				if (vertexBest.costFromRoot < cost)
+				int limit = 5000 + j;
+
+				while (k < limit)
 				{
-					cost = vertexBest.costFromRoot;
-					c++;
+
+					rrts.iteration(node, -1, -1);
+					k++;
+				}
+				vertex_t &vertexBest = rrts.getBestVertex();
+				if (&vertexBest != NULL)
+				{
+					if (vertexBest.costFromRoot < cost)
+					{
+						cost = vertexBest.costFromRoot;
+						c++;
+					}
+				}
+				if (cp != c)
+				{
+					cp = c;
+				}
+				else
+				{
+					break;
 				}
 			}
-			if (cp != c)
+
+			cout << "iterations:" << k << endl;
+
+			// Run the algorithm for 10000 iteartions
+			clock_t finish = clock();
+			cout << "Time : " << ((double) (finish - start)) / CLOCKS_PER_SEC << endl;
+
+			// publishTree (lcm, rrts, system);
+			// stores path in the folder env_no
+			auto result = publishTraj(lcm, rrts, system, idx, to_string(env_no), client);
+			if (!result)
 			{
-				cp = c;
+				idx--;
 			}
-			else
-			{
-				break;
-			}
+
 		}
-
-		cout << "iterations:" << k << endl;
-
-		// Run the algorithm for 10000 iteartions
-		clock_t finish = clock();
-		cout << "Time : " << ((double) (finish - start)) / CLOCKS_PER_SEC << endl;
-
-		// publishTree (lcm, rrts, system);
-		// stores path in the folder env_no
-		publishTraj(lcm, rrts, system, idx, to_string(env_no), filepath);
-
 	}
 
 	return 1;
 }
 
-int publishEnvironment(lcm_t *lcm, region &regionOperating, region &regionGoal, list<region *> &obstacles) {
+//int publishEnvironment(lcm_t *lcm, region &regionOperating, region &regionGoal, list<region *> &obstacles) {
+//
+//	// Publish the environment
+//	lcmtypes_environment_t *environment = (lcmtypes_environment_t *) malloc(sizeof(lcmtypes_environment_t));
+//
+//	environment->operating.center[0] = regionOperating.center[0];
+//	environment->operating.center[1] = regionOperating.center[1];
+//	environment->operating.center[2] = 0.0;
+//	environment->operating.size[0] = regionOperating.size[0];
+//	environment->operating.size[1] = regionOperating.size[1];
+//	environment->operating.size[2] = 0.0;
+//
+//	environment->goal.center[0] = regionGoal.center[0];
+//	environment->goal.center[1] = regionGoal.center[1];
+//	environment->goal.center[2] = 0.0;
+//	environment->goal.size[0] = regionGoal.size[0];
+//	environment->goal.size[1] = regionGoal.size[1];
+//	environment->goal.size[2] = 0.0;
+//
+//	environment->num_obstacles = obstacles.size();
+//
+//	if (environment->num_obstacles > 0)
+//	{
+//		environment->obstacles = (lcmtypes_region_3d_t *) malloc(sizeof(lcmtypes_region_3d_t));
+//	}
+//
+//	int idx_obstacles = 0;
+//	for (list<region *>::iterator iter = obstacles.begin(); iter != obstacles.end(); iter++)
+//	{
+//
+//		region *obstacleCurr = *iter;
+//
+//		environment->obstacles[idx_obstacles].center[0] = obstacleCurr->center[0];
+//		environment->obstacles[idx_obstacles].center[1] = obstacleCurr->center[1];
+//		environment->obstacles[idx_obstacles].center[2] = 0.0;
+//		environment->obstacles[idx_obstacles].size[0] = obstacleCurr->size[0];
+//		environment->obstacles[idx_obstacles].size[1] = obstacleCurr->size[1];
+//		environment->obstacles[idx_obstacles].size[2] = 0.0;
+//
+//		idx_obstacles++;
+//	}
+//
+//	lcmtypes_environment_t_publish(lcm, "ENVIRONMENT", environment);
+//	lcmtypes_environment_t_destroy(environment);
+//
+//	return 1;
+//}
 
-	// Publish the environment
-	lcmtypes_environment_t *environment = (lcmtypes_environment_t *) malloc(sizeof(lcmtypes_environment_t));
+int publishTraj(lcm_t *lcm,
+                planner_t &planner,
+                System &system,
+                int num,
+                string fod,
+                google::cloud::StatusOr <gcs::Client> client) {
 
-	environment->operating.center[0] = regionOperating.center[0];
-	environment->operating.center[1] = regionOperating.center[1];
-	environment->operating.center[2] =0.0;
-	environment->operating.size[0] = regionOperating.size[0];
-	environment->operating.size[1] = regionOperating.size[1];
-	environment->operating.size[2] = 0.0;
-
-	environment->goal.center[0] = regionGoal.center[0];
-	environment->goal.center[1] = regionGoal.center[1];
-	environment->goal.center[2] = 0.0;
-	environment->goal.size[0] = regionGoal.size[0];
-	environment->goal.size[1] = regionGoal.size[1];
-	environment->goal.size[2] = 0.0;
-
-	environment->num_obstacles = obstacles.size();
-
-	if (environment->num_obstacles > 0)
-	{
-		environment->obstacles = (lcmtypes_region_3d_t *) malloc(sizeof(lcmtypes_region_3d_t));
-	}
-
-	int idx_obstacles = 0;
-	for (list<region *>::iterator iter = obstacles.begin(); iter != obstacles.end(); iter++)
-	{
-
-		region *obstacleCurr = *iter;
-
-		environment->obstacles[idx_obstacles].center[0] = obstacleCurr->center[0];
-		environment->obstacles[idx_obstacles].center[1] = obstacleCurr->center[1];
-		environment->obstacles[idx_obstacles].center[2] = 0.0;
-		environment->obstacles[idx_obstacles].size[0] = obstacleCurr->size[0];
-		environment->obstacles[idx_obstacles].size[1] = obstacleCurr->size[1];
-		environment->obstacles[idx_obstacles].size[2] = 0.0;
-
-		idx_obstacles++;
-	}
-
-	lcmtypes_environment_t_publish(lcm, "ENVIRONMENT", environment);
-	lcmtypes_environment_t_destroy(environment);
-
-	return 1;
-}
-
-int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod, string filepath) {
+	auto writer = client->WriteObject("mpnet-bucket", "env/e" + fod + "/path" + to_string(num) + ".dat");
 
 	cout << "Publishing trajectory -- start" << endl;
 
@@ -460,24 +464,7 @@ int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string 
 	if (&vertexBest == NULL)
 	{
 		cout << "No best vertex" << endl;
-		double path[1][2];
-		path[0][0] = 0;
-		path[0][1] = 0;
-		string Result;          // string which will contain the result
-		ostringstream convert;  // stream used for the conversion
-		convert << num;         // insert the textual representation of 'Number' in the characters in the stream
-		Result = convert.str(); // set 'Result' to the contents of the stream
-
-		cout << "e" << fod << "/path" << Result << ".dat\n";
-		ofstream out((filepath + "/env/e" + fod + "/path" + Result + ".dat").c_str(), ios::out | ios::binary);
-		if (!out)
-		{
-			cout << "Cannot open file: " << filepath << "env/e" << fod << "/path" << Result << ".dat\n";
-			return 1;
-		}
-
-		out.write((char *) &path, sizeof path);
-		out.close();
+		writer.Close();
 		return 0;
 	}
 
@@ -528,20 +515,19 @@ int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string 
 
 		stateIndex++;
 	}
-	string Result;          // string which will contain the result
-	ostringstream convert;  // stream used for the conversion
-	convert << num;         // insert the textual representation of 'Number' in the characters in the stream
-	Result = convert.str(); // set 'Result' to the contents of the stream
 
-	ofstream out((filepath + "/env/e" + fod + "/path" + Result + ".dat").c_str(), ios::out | ios::binary);
-	if (!out)
+	writer.write((char *) &path, sizeof path);
+
+	if (writer.metadata())
 	{
-		cout << "Cannot open file: " << filepath << "/env/e" << fod << "/path" << Result << ".dat\n";
+		std::cout << "Successfully created object: " << *writer.metadata() << "\n";
+	}
+	else
+	{
+		std::cerr << "Error creating object: " << writer.metadata().status() << "\n";
 		return 1;
 	}
-
-	out.write((char *) &path, sizeof path);
-	out.close();
+	writer.Close();
 
 	lcmtypes_trajectory_t_publish(lcm, "TRAJECTORY", opttraj);
 
