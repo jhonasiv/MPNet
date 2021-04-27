@@ -54,7 +54,7 @@ int publishTree(lcm_t *lcm, planner_t &planner, System &system);
 
 int publishPC(lcm_t *lcm, double nodes[8000][2], int sze, System &system);
 
-int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod);
+int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod, string filepath);
 // lcm_t *lcm, region& regionOperating, region& regionGoal,list<region*>& obstacles
 // int publishEnvironment (lcm_t *lcm);
 
@@ -174,8 +174,13 @@ void printStartGoal(pair<float, float> start, pair<float, float> goal) {
 	cout << " Goal -> [" << get<0>(goal) << ", " << get<1>(goal) << "]\n\n";
 }
 
-int main() {
+int main(int argc, char **argv) {
 
+	int env_no = 0;
+	if (argc == 2)
+	{
+		env_no = atoi(argv[1]);
+	}
 	double nodes[size][2]; // nodes from obstacle-free space that will become random start-goal pairs
 
 	srand(time(0));
@@ -201,23 +206,21 @@ int main() {
 	pair<float, float> goalPoint;
 	pair<float, float> startPoint;
 
-	for (int env_no = 0; env_no < 100; env_no++)
+	string path = filepath + "/env/e" + to_string(env_no);
+	mkdir(path.c_str(), ACCESSPERMS); // create folder with env label to store generated trajectories
+	for (int idx = 0; idx < 4000; idx++)
 	{
-		string path = "env/e" + to_string(env_no);
-		mkdir(path.c_str(), ACCESSPERMS); // create folder with env label to store generated trajectories
-		for (int idx = 0; idx < 4000; idx++)
-		{
-			cout << "idx " << idx << endl;
+		cout << "idx " << idx << endl;
 
-			planner_t rrts;
+		planner_t rrts;
 
-			cout << "RRTstar is alive" << endl;
+		cout << "RRTstar is alive" << endl;
 
-			// Get lcm
-			lcm_t *lcm = bot_lcm_get_global(NULL);
+		// Get lcm
+		lcm_t *lcm = bot_lcm_get_global(NULL);
 
-			goalPoint = getFreeSpacePoint(perm[env_no]);
-			startPoint = getFreeSpacePoint(perm[env_no]);
+		goalPoint = getFreeSpacePoint(perm[env_no]);
+		startPoint = getFreeSpacePoint(perm[env_no]);
 //		do
 //		{
 //			auto tempPoint = getFreeSpacePoint(perm[idx]);
@@ -226,176 +229,176 @@ int main() {
 //		}
 //		while (goalPoint == startPoint);
 
-			printEnv(perm[idx]);
-			printStartGoal(startPoint, goalPoint);
+		printEnv(perm[idx]);
+		printStartGoal(startPoint, goalPoint);
 
-			// Create the dynamical system
-			System system;
+		// Create the dynamical system
+		System system;
 
-			// Three dimensional configuration space
-			system.setNumDimensions(2);
-			// Define the operating region
-			system.regionOperating.setNumDimensions(2);
-			system.regionOperating.center[0] = 0.0;
-			system.regionOperating.center[1] = 0.0;
+		// Three dimensional configuration space
+		system.setNumDimensions(2);
+		// Define the operating region
+		system.regionOperating.setNumDimensions(2);
+		system.regionOperating.center[0] = 0.0;
+		system.regionOperating.center[1] = 0.0;
 //		system.regionOperating.center[2] = 0.0;
-			system.regionOperating.size[0] = 40.0;
-			system.regionOperating.size[1] = 40.0;
+		system.regionOperating.size[0] = 40.0;
+		system.regionOperating.size[1] = 40.0;
 //		system.regionOperating.size[2] = 0.0;
-			// Define the goal region
-			system.regionGoal.setNumDimensions(2);
-			system.regionGoal.center[0] = goalPoint.first;
-			system.regionGoal.center[1] = goalPoint.second;
+		// Define the goal region
+		system.regionGoal.setNumDimensions(2);
+		system.regionGoal.center[0] = goalPoint.first;
+		system.regionGoal.center[1] = goalPoint.second;
 //		system.regionGoal.center[2] = 0.0;
-			system.regionGoal.size[0] = 1.0;
-			system.regionGoal.size[1] = 1.0;
+		system.regionGoal.size[0] = 1.0;
+		system.regionGoal.size[1] = 1.0;
 //		system.regionGoal.size[2] = 0.0;
-			region *obstacle, *obstacle1, *obstacle2, *obstacle3, *obstacle4, *obstacle5, *obstacle6;
-			obstacle = new region;
-			obstacle1 = new region;
-			obstacle2 = new region;
-			obstacle3 = new region;
-			obstacle4 = new region;
-			obstacle5 = new region;
-			obstacle6 = new region;
+		region *obstacle, *obstacle1, *obstacle2, *obstacle3, *obstacle4, *obstacle5, *obstacle6;
+		obstacle = new region;
+		obstacle1 = new region;
+		obstacle2 = new region;
+		obstacle3 = new region;
+		obstacle4 = new region;
+		obstacle5 = new region;
+		obstacle6 = new region;
 
-			obstacle->setNumDimensions(2);
-			obstacle->center[0] = perm[env_no][0].first;
-			obstacle->center[1] = perm[env_no][0].second;
+		obstacle->setNumDimensions(2);
+		obstacle->center[0] = perm[env_no][0].first;
+		obstacle->center[1] = perm[env_no][0].second;
 //		obstacle->center[2] = 0.0;
-			obstacle->size[0] = 5.0;
-			obstacle->size[1] = 5.0;
+		obstacle->size[0] = 5.0;
+		obstacle->size[1] = 5.0;
 //		obstacle->size[2] = 0.0;
 
-			obstacle1->setNumDimensions(2);
-			obstacle1->center[0] = perm[env_no][1].first;
-			obstacle1->center[1] = perm[env_no][1].second;
+		obstacle1->setNumDimensions(2);
+		obstacle1->center[0] = perm[env_no][1].first;
+		obstacle1->center[1] = perm[env_no][1].second;
 //		obstacle1->center[2] = 0.0;
-			obstacle1->size[0] = 5.0;
-			obstacle1->size[1] = 5.0;
+		obstacle1->size[0] = 5.0;
+		obstacle1->size[1] = 5.0;
 //		obstacle1->size[2] = 0.0;
 
-			obstacle2->setNumDimensions(2);
-			obstacle2->center[0] = perm[env_no][2].first;
-			obstacle2->center[1] = perm[env_no][2].second;
+		obstacle2->setNumDimensions(2);
+		obstacle2->center[0] = perm[env_no][2].first;
+		obstacle2->center[1] = perm[env_no][2].second;
 //		obstacle2->center[2] = 0.0;
-			obstacle2->size[0] = 5.0;
-			obstacle2->size[1] = 5.0;
+		obstacle2->size[0] = 5.0;
+		obstacle2->size[1] = 5.0;
 //		obstacle2->size[2] = 0.0;
 
-			obstacle3->setNumDimensions(2);
-			obstacle3->center[0] = perm[env_no][3].first;
-			obstacle3->center[1] = perm[env_no][3].second;
+		obstacle3->setNumDimensions(2);
+		obstacle3->center[0] = perm[env_no][3].first;
+		obstacle3->center[1] = perm[env_no][3].second;
 //		obstacle3->center[2] = 0.0;
-			obstacle3->size[0] = 5.0;
-			obstacle3->size[1] = 5.0;
+		obstacle3->size[0] = 5.0;
+		obstacle3->size[1] = 5.0;
 //		obstacle3->size[2] = 0.0;
 
-			obstacle4->setNumDimensions(2);
-			obstacle4->center[0] = perm[env_no][4].first;
-			obstacle4->center[1] = perm[env_no][4].second;
+		obstacle4->setNumDimensions(2);
+		obstacle4->center[0] = perm[env_no][4].first;
+		obstacle4->center[1] = perm[env_no][4].second;
 //		obstacle4->center[2] = 0.0;
-			obstacle4->size[0] = 5.0;
-			obstacle4->size[1] = 5.0;
+		obstacle4->size[0] = 5.0;
+		obstacle4->size[1] = 5.0;
 //		obstacle4->size[2] = 0.0;
 
-			obstacle5->setNumDimensions(2);
-			obstacle5->center[0] = perm[env_no][5].first;
-			obstacle5->center[1] = perm[env_no][5].second;
+		obstacle5->setNumDimensions(2);
+		obstacle5->center[0] = perm[env_no][5].first;
+		obstacle5->center[1] = perm[env_no][5].second;
 //		obstacle5->center[2] = 0.0;
-			obstacle5->size[0] = 5.0;
-			obstacle5->size[1] = 5.0;
+		obstacle5->size[0] = 5.0;
+		obstacle5->size[1] = 5.0;
 //		obstacle5->size[2] = 0.0;
 
-			obstacle6->setNumDimensions(2);
-			obstacle6->center[0] = perm[env_no][6].first;
-			obstacle6->center[1] = perm[env_no][6].second;
+		obstacle6->setNumDimensions(2);
+		obstacle6->center[0] = perm[env_no][6].first;
+		obstacle6->center[1] = perm[env_no][6].second;
 //		obstacle6->center[2] = 0.0;
-			obstacle6->size[0] = 5.0;
-			obstacle6->size[1] = 5.0;
+		obstacle6->size[0] = 5.0;
+		obstacle6->size[1] = 5.0;
 //		obstacle6->size[2] = 0.0;
 
-			system.obstacles.push_front(obstacle);  // Add the obstacle to the list
-			system.obstacles.push_front(obstacle1); // Add the obstacle to the list
-			system.obstacles.push_front(obstacle2); // Add the obstacle to the list
-			system.obstacles.push_front(obstacle3); // Add the obstacle to the list
-			system.obstacles.push_front(obstacle4); // Add the obstacle to the list
-			system.obstacles.push_front(obstacle5);
-			system.obstacles.push_front(obstacle6);
+		system.obstacles.push_front(obstacle);  // Add the obstacle to the list
+		system.obstacles.push_front(obstacle1); // Add the obstacle to the list
+		system.obstacles.push_front(obstacle2); // Add the obstacle to the list
+		system.obstacles.push_front(obstacle3); // Add the obstacle to the list
+		system.obstacles.push_front(obstacle4); // Add the obstacle to the list
+		system.obstacles.push_front(obstacle5);
+		system.obstacles.push_front(obstacle6);
 
-			// Add the system to the planner
-			rrts.setSystem(system);
-			// Set up the root vertex
-			vertex_t &root = rrts.getRootVertex();
-			State &rootState = root.getState();
+		// Add the system to the planner
+		rrts.setSystem(system);
 
-			// Define start state
-			rootState[0] = startPoint.first;
-			rootState[1] = startPoint.second;
-			rootState[2] = 0.0;
+//		publishEnvironment(lcm, system.regionOperating, system.regionGoal, system.obstacles);
+		// Set up the root vertex
+		vertex_t &root = rrts.getRootVertex();
+		State &rootState = root.getState();
 
-			// Initialize the planner
-			rrts.initialize();
+		// Define start state
+		rootState[0] = startPoint.first;
+		rootState[1] = startPoint.second;
 
-			// This parameter should be larger than 1.5 for asymptotic
-			//   optimality. Larger values will weigh on optimization
-			//   rather than exploration in the RRT* algorithm. Lower
-			//   values, such as 0.1, should recover the RRT.
-			rrts.setGamma(1.5);
+		// Initialize the planner
+		rrts.initialize();
 
-			clock_t start = clock();
-			int j = 0;
-			double node[2];
+		// This parameter should be larger than 1.5 for asymptotic
+		//   optimality. Larger values will weigh on optimization
+		//   rather than exploration in the RRT* algorithm. Lower
+		//   values, such as 0.1, should recover the RRT.
+		rrts.setGamma(1.5);
 
-			// random obstacle-free nodes generation. These nodes were generated to form random start and goal
-			// pairs.
+		clock_t start = clock();
+		int j = 0;
+		double node[2];
+
+		// random obstacle-free nodes generation. These nodes were generated to form random start and goal
+		// pairs.
 
 
-			// p-rrt* path generation
-			double cost = 1000;
-			int k = 0;
-			int c = 0, cp = 0;
-			for (int j = 0; j <= 100000; j += 2000)
+		// p-rrt* path generation
+		double cost = 1000;
+		int k = 0;
+		int c = 0, cp = 0;
+		for (int j = 0; j <= 100000; j += 2000)
+		{
+
+			int limit = 5000 + j;
+
+			while (k < limit)
 			{
 
-				int limit = 5000 + j;
-
-				while (k < limit)
+				rrts.iteration(node, -1, -1);
+				k++;
+			}
+			vertex_t &vertexBest = rrts.getBestVertex();
+			if (&vertexBest != NULL)
+			{
+				if (vertexBest.costFromRoot < cost)
 				{
-
-					rrts.iteration(node, -1, -1);
-					k++;
-				}
-				vertex_t &vertexBest = rrts.getBestVertex();
-				if (&vertexBest != NULL)
-				{
-					if (vertexBest.costFromRoot < cost)
-					{
-						cost = vertexBest.costFromRoot;
-						c++;
-					}
-				}
-				if (cp != c)
-				{
-					cp = c;
-				}
-				else
-				{
-					break;
+					cost = vertexBest.costFromRoot;
+					c++;
 				}
 			}
-
-			cout << "iterations:" << k << endl;
-
-			// Run the algorithm for 10000 iteartions
-			clock_t finish = clock();
-			cout << "Time : " << ((double) (finish - start)) / CLOCKS_PER_SEC << endl;
-
-			// publishTree (lcm, rrts, system);
-			// stores path in the folder env_no
-			publishTraj(lcm, rrts, system, idx, to_string(env_no));
-
+			if (cp != c)
+			{
+				cp = c;
+			}
+			else
+			{
+				break;
+			}
 		}
+
+		cout << "iterations:" << k << endl;
+
+		// Run the algorithm for 10000 iteartions
+		clock_t finish = clock();
+		cout << "Time : " << ((double) (finish - start)) / CLOCKS_PER_SEC << endl;
+
+		// publishTree (lcm, rrts, system);
+		// stores path in the folder env_no
+		publishTraj(lcm, rrts, system, idx, to_string(env_no), filepath);
+
 	}
 
 	return 1;
@@ -408,17 +411,17 @@ int publishEnvironment(lcm_t *lcm, region &regionOperating, region &regionGoal, 
 
 	environment->operating.center[0] = regionOperating.center[0];
 	environment->operating.center[1] = regionOperating.center[1];
-	environment->operating.center[2] = regionOperating.center[2];
+	environment->operating.center[2] =0.0;
 	environment->operating.size[0] = regionOperating.size[0];
 	environment->operating.size[1] = regionOperating.size[1];
-	environment->operating.size[2] = regionOperating.size[2];
+	environment->operating.size[2] = 0.0;
 
 	environment->goal.center[0] = regionGoal.center[0];
 	environment->goal.center[1] = regionGoal.center[1];
-	environment->goal.center[2] = regionGoal.center[2];
+	environment->goal.center[2] = 0.0;
 	environment->goal.size[0] = regionGoal.size[0];
 	environment->goal.size[1] = regionGoal.size[1];
-	environment->goal.size[2] = regionGoal.size[2];
+	environment->goal.size[2] = 0.0;
 
 	environment->num_obstacles = obstacles.size();
 
@@ -435,10 +438,10 @@ int publishEnvironment(lcm_t *lcm, region &regionOperating, region &regionGoal, 
 
 		environment->obstacles[idx_obstacles].center[0] = obstacleCurr->center[0];
 		environment->obstacles[idx_obstacles].center[1] = obstacleCurr->center[1];
-		environment->obstacles[idx_obstacles].center[2] = obstacleCurr->center[2];
+		environment->obstacles[idx_obstacles].center[2] = 0.0;
 		environment->obstacles[idx_obstacles].size[0] = obstacleCurr->size[0];
 		environment->obstacles[idx_obstacles].size[1] = obstacleCurr->size[1];
-		environment->obstacles[idx_obstacles].size[2] = obstacleCurr->size[2];
+		environment->obstacles[idx_obstacles].size[2] = 0.0;
 
 		idx_obstacles++;
 	}
@@ -449,7 +452,7 @@ int publishEnvironment(lcm_t *lcm, region &regionOperating, region &regionGoal, 
 	return 1;
 }
 
-int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod) {
+int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod, string filepath) {
 
 	cout << "Publishing trajectory -- start" << endl;
 
@@ -467,10 +470,10 @@ int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string 
 		Result = convert.str(); // set 'Result' to the contents of the stream
 
 		cout << "e" << fod << "/path" << Result << ".dat\n";
-		ofstream out(("e" + fod + "/path" + Result + ".dat").c_str(), ios::out | ios::binary);
+		ofstream out((filepath + "/env/e" + fod + "/path" + Result + ".dat").c_str(), ios::out | ios::binary);
 		if (!out)
 		{
-			cout << "Cannot open file.";
+			cout << "Cannot open file: " << filepath << "env/e" << fod << "/path" << Result << ".dat\n";
 			return 1;
 		}
 
@@ -479,7 +482,7 @@ int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string 
 		return 0;
 	}
 
-	cout << "Cost From root " << vertexBest.costFromRoot;
+	cout << "Cost From root " << vertexBest.costFromRoot << endl;
 	list<double *> stateList;
 	planner.getBestTrajectory(stateList);
 	lcmtypes_trajectory_t *opttraj = (lcmtypes_trajectory_t *) malloc(sizeof(lcmtypes_trajectory_t));
@@ -522,7 +525,7 @@ int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string 
 			opttraj->states[stateIndex].z = 0.0;
 		}
 
-		delete[] stateRef;
+		free(stateRef);
 
 		stateIndex++;
 	}
@@ -531,10 +534,10 @@ int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string 
 	convert << num;         // insert the textual representation of 'Number' in the characters in the stream
 	Result = convert.str(); // set 'Result' to the contents of the stream
 
-	ofstream out(("env/e" + fod + "/path" + Result + ".dat").c_str(), ios::out | ios::binary);
+	ofstream out((filepath + "/env/e" + fod + "/path" + Result + ".dat").c_str(), ios::out | ios::binary);
 	if (!out)
 	{
-		cout << "Cannot open file.";
+		cout << "Cannot open file: " << filepath << "/env/e" << fod << "/path" << Result << ".dat\n";
 		return 1;
 	}
 
