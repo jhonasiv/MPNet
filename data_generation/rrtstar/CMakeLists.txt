@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 2.6.0)
 set(CMAKE_CXX_STANDARD 11)
 set(POD_NAME rrtstar)
 include(cmake/pods.cmake)
+add_compile_options(-std=c++11)
 
 find_package(PkgConfig REQUIRED)
 
