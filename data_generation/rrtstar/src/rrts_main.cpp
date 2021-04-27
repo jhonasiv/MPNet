@@ -177,9 +177,14 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	int startId = 0;
-	if (argc == 2)
+	int numRuns = 5;
+	switch (argc)
 	{
-		startId = atoi(argv[1]);
+	case 2: startId = atoi(argv[1]);
+		break;
+	case 3: startId = atoi(argv[1]);
+		numRuns = atoi(argv[2]);
+		break;
 	}
 
 	srand(time(0));
@@ -204,7 +209,7 @@ int main(int argc, char **argv) {
 	pair<float, float> goalPoint;
 	pair<float, float> startPoint;
 
-	for (int env_no = startId; env_no < startId + 5; env_no++)
+	for (int env_no = startId; env_no < startId + numRuns; env_no++)
 	{
 		for (int idx = 0; idx < 4000; idx++)
 		{
