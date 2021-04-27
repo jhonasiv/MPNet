@@ -18,6 +18,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <time.h>
+#include <memory>
 
 using namespace RRTstar;
 using namespace SingleIntegrator;
