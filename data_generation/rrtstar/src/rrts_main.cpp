@@ -234,7 +234,7 @@ int main(int argc, char **argv) {
 		}
 		for (int idx = pathId; idx < 4000; idx++)
 		{
-			cout << "Env: " << env_no << "idx " << idx << endl;
+			cout << "Env: " << env_no << "\tidx " << idx << endl;
 
 			planner_t rrts;
 
