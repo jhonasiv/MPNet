@@ -224,7 +224,13 @@ int main(int argc, char **argv) {
 	int pathId = 0;
 	for (int env_no = startId; env_no < startId + numRuns; env_no++)
 	{
-		pathId = getNewPathId(filepath + "/env/e" + to_string(env_no) + "/");
+		try{
+
+			pathId = getNewPathId(filepath + "/env/e" + to_string(env_no) + "/");
+		}
+		catch (fs::filesystem_error){
+			fs::create_directories(filepath + "/env/e" + to_string(env_no));
+		}
 		for (int idx = pathId; idx < 4000; idx++)
 		{
 			cout << "idx " << idx << endl;
