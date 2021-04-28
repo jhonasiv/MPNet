@@ -230,6 +230,7 @@ int main(int argc, char **argv) {
 		}
 		catch (fs::filesystem_error){
 			fs::create_directories(filepath + "/env/e" + to_string(env_no));
+			pathId = 0;
 		}
 		for (int idx = pathId; idx < 4000; idx++)
 		{
