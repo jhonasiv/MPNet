@@ -18,11 +18,13 @@
 #include <string>
 #include <sys/stat.h>
 #include <time.h>
+#include <filesystem>
 
 using namespace RRTstar;
 using namespace SingleIntegrator;
 
 using namespace std;
+namespace fs = filesystem;
 
 // int sw=1;
 // int algo=0;
@@ -55,12 +57,7 @@ int publishTree(lcm_t *lcm, planner_t &planner, System &system);
 
 int publishPC(lcm_t *lcm, double nodes[8000][2], int sze, System &system);
 
-int publishTraj(lcm_t *lcm,
-                planner_t &planner,
-                System &system,
-                int num,
-                string fod,
-                google::cloud::StatusOr <gcs::Client> client);
+int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod, string filepath);
 // lcm_t *lcm, region& regionOperating, region& regionGoal,list<region*>& obstacles
 // int publishEnvironment (lcm_t *lcm);
 
@@ -167,7 +164,23 @@ void printStartGoal(pair<float, float> start, pair<float, float> goal) {
 	cout << " Goal -> [" << get<0>(goal) << ", " << get<1>(goal) << "]\n\n";
 }
 
+int getNewPathId(string path) {
+	vector<int> filenames;
+	string pathName;
+	for (const auto &entry: fs::directory_iterator(path))
+	{
+		pathName = entry.path().stem().string();
+		filenames.push_back(stoi(pathName.substr(4)));
+	}
+	auto pathId = max_element(filenames.begin(), filenames.end());
+	return *pathId;
+
+}
+
 int main(int argc, char **argv) {
+	string filepath = __FILE__;
+	size_t strIdx = filepath.find("mpnet");
+	filepath = filepath.substr(0, strIdx + 5);
 
 	google::cloud::StatusOr <gcs::Client> client = gcs::Client::CreateDefaultClient();
 	if (!client)
@@ -208,10 +221,11 @@ int main(int argc, char **argv) {
 	*/
 	pair<float, float> goalPoint;
 	pair<float, float> startPoint;
-
+	int pathId = 0;
 	for (int env_no = startId; env_no < startId + numRuns; env_no++)
 	{
-		for (int idx = 0; idx < 4000; idx++)
+		pathId = getNewPathId(filepath + "/env/e" + to_string(env_no) + "/");
+		for (int idx = pathId; idx < 4000; idx++)
 		{
 			cout << "idx " << idx << endl;
 
@@ -393,7 +407,7 @@ int main(int argc, char **argv) {
 
 			// publishTree (lcm, rrts, system);
 			// stores path in the folder env_no
-			auto result = publishTraj(lcm, rrts, system, idx, to_string(env_no), client);
+			auto result = publishTraj(lcm, rrts, system, idx, to_string(env_no), filepath);
 			if (!result)
 			{
 				idx--;
@@ -458,9 +472,7 @@ int publishTraj(lcm_t *lcm,
                 System &system,
                 int num,
                 string fod,
-                google::cloud::StatusOr <gcs::Client> client) {
-
-	auto writer = client->WriteObject("mpnet-bucket", "env/e" + fod + "/path" + to_string(num) + ".dat");
+                string filepath) {
 
 	cout << "Publishing trajectory -- start" << endl;
 
@@ -469,7 +481,6 @@ int publishTraj(lcm_t *lcm,
 	if (&vertexBest == NULL)
 	{
 		cout << "No best vertex" << endl;
-		writer.Close();
 		return 0;
 	}
 
@@ -521,18 +532,15 @@ int publishTraj(lcm_t *lcm,
 		stateIndex++;
 	}
 
-	writer.write((char *) &path, sizeof path);
-
-	if (writer.metadata())
+	ofstream out((filepath + "/env/e" + fod + "/path" + to_string(num) + ".dat").c_str(), ios::out | ios::binary);
+	if (!out)
 	{
-		std::cout << "Successfully created object: " << *writer.metadata() << "\n";
-	}
-	else
-	{
-		std::cerr << "Error creating object: " << writer.metadata().status() << "\n";
+		cout << "Cannot open file: " << filepath << "/env/e" << fod << "/path" << to_string(num) << ".dat\n";
 		return 1;
 	}
-	writer.Close();
+
+	out.write((char *) &path, sizeof path);
+	out.close();
 
 	lcmtypes_trajectory_t_publish(lcm, "TRAJECTORY", opttraj);
 

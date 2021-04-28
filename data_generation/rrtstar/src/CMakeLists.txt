@@ -1,6 +1,6 @@
 SET(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:/usr/local/lib/pkgconfig:/opt/local/lib/pkgconfig:/usr/local/share/pkgconfig")
 
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++17)
 pods_install_pkg_config_file(rrtstar
     CFLAGS
     LIBS  -lrrtstar
@@ -19,4 +19,4 @@ pods_use_pkg_config_packages(rrtstar
 
 pods_install_executables(rrtstar)
 
-target_link_libraries(rrtstar -llcm google-cloud-cpp::storage)
+target_link_libraries(rrtstar -llcm google-cloud-cpp::storage -lstdc++fs)
