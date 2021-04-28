@@ -20,13 +20,13 @@ def gen_centers(obs_perm, map_size, size, resolution):
 def gen_perm(centers, num_obs):
     centers = centers.reshape((-1, 2))
     perms = set()
-    for _ in range(77520):  # (1) Draw N samples from permutations Universe U (#U = k!)
+    for _ in range(77520):
         while True:
             perm = np.random.permutation(centers)[:num_obs]
             key = tuple(map(tuple, perm))
             if key not in perms:
-                perms.update((key,))  # (5) Insert into set
-                break  # (6) Break the endless loop
+                perms.update((key,))
+                break
 
     perms = np.array(list(perms)).astype(np.float).reshape((-1, 14))
     np.savetxt(f"{project_path}/obs/perm.csv", perms, delimiter=",")
