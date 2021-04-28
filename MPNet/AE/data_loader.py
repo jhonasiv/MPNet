@@ -54,14 +54,12 @@ class EnvDataset(Dataset, ABC):
         return torch.from_numpy(sample), torch.from_numpy(sample)
 
 
+def loader(num_envs, batch_size):
+    dataset = EnvDataset(num_envs)
+    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=2, shuffle=True)
+    return dataloader
+
+
 if __name__ == '__main__':
-    dataset = EnvDataset(30000)
-    x = dataset[540][0]
-    y = dataset[500][0]
-    for a in [x, y]:
-        fig = go.Figure()
-        a = a.reshape((-1, 2))
-        fig.add_trace(go.Scatter(x=a[:, 0], y=a[:, 1], mode='markers'))
-        fig.update_xaxes(range=[-20, 20])
-        fig.update_yaxes(range=[-20, 20])
-        fig.show()
+    data = loader(30000, 100)
+    print(data)
