@@ -1,20 +1,19 @@
-import random
 from abc import ABC
-from typing import Iterable
 
 import torch
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import os
-from plotly import graph_objs as go
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
 
-def load_perms(num):
+def load_perms(num, start_point=0):
     perms = np.loadtxt(f'{project_path}/obs/perm.csv', delimiter=',')
+    assert num + start_point < len(perms), f"Dataset has shape {perms.shape}. Received request for " \
+                                           f"{num + start_point} data points."
     perms = perms.reshape((-1, 7, 2))
-    return perms[:num]
+    return perms[start_point: start_point + num]
 
 
 def create_samples(perm_unit, cached_perm):
@@ -31,9 +30,9 @@ def create_samples(perm_unit, cached_perm):
 
 
 class EnvDataset(Dataset, ABC):
-    def __init__(self, size):
+    def __init__(self, size, start_point=0):
         super().__init__()
-        self.perms = load_perms(size)
+        self.perms = load_perms(size, start_point)
         self.cached_perms = {}
     
     def __len__(self):
@@ -51,15 +50,19 @@ class EnvDataset(Dataset, ABC):
             return np.array(samples)
         else:
             sample = create_samples(self.perms[item], self.cached_perms)
-        return torch.from_numpy(sample), torch.from_numpy(sample)
+        return torch.from_numpy(sample)
 
 
-def loader(num_envs, batch_size):
-    dataset = EnvDataset(num_envs)
-    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=2, shuffle=True)
+def loader(num_envs, batch_size, start_point=0):
+    dataset = EnvDataset(num_envs, start_point)
+    if batch_size > 1:
+        dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=2, shuffle=True)
+    else:
+        dataloader = DataLoader(dataset)
     return dataloader
 
 
 if __name__ == '__main__':
-    data = loader(30000, 100)
-    print(data)
+    data = loader(300, 100, 0)
+    for n, (inp, ref) in enumerate(data):
+        print(inp)
