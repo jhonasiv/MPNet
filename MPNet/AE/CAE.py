@@ -28,15 +28,14 @@ class ContractiveAutoEncoder(pl.LightningModule):
         l3_units = config.get("l3_units", 128)
         actv = config.get("actv", nn.PReLU)
         self.lambd = config.get("lambda", 1e-3)
-        dropout = config.get("dropout", 0)
         
-        self.encoder = nn.Sequential(nn.Linear(2800, l1_units), actv(), Dropout(dropout),
-                                     nn.Linear(l1_units, l2_units), actv(), Dropout(dropout),
-                                     nn.Linear(l2_units, l3_units), actv(), Dropout(dropout))
+        self.encoder = nn.Sequential(nn.Linear(2800, l1_units), actv(),
+                                     nn.Linear(l1_units, l2_units), actv(),
+                                     nn.Linear(l2_units, l3_units), actv())
         self.encoder.add_module("embedding", nn.Linear(l3_units, 28))
-        self.decoder = nn.Sequential(nn.Linear(28, l3_units), actv(), Dropout(dropout),
-                                     nn.Linear(l3_units, l2_units), actv(), Dropout(dropout),
-                                     nn.Linear(l2_units, l1_units), actv(), Dropout(dropout),
+        self.decoder = nn.Sequential(nn.Linear(28, l3_units), actv(),
+                                     nn.Linear(l3_units, l2_units), actv(),
+                                     nn.Linear(l2_units, l1_units), actv(),
                                      nn.Linear(l1_units, 2800))
         self.code = None
     

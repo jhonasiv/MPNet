@@ -28,21 +28,21 @@ def tuning(args):
               "l2_units": tune.choice([224, 256, 288]),
               "l3_units": tune.choice([96, 128, 160]),
               "lambda":   tune.choice([1e-3, 1e-4, 1e-5]),
-              "dropout":  tune.choice([0, 0.1, 0.2, 0.3]),
               "actv":     tune.choice([nn.SELU])}
-    scheduler = PopulationBasedTraining(perturbation_interval=4,
-                                        hyperparam_mutations={"l1_units": [448, 480, 512, 544, 576],
-                                                              "l2_units": [192, 224, 256, 288, 312],
-                                                              "l3_units": [64, 96, 128, 160, 192]})
+    scheduler = PopulationBasedTraining(time_attr='training_iteration', perturbation_interval=4,
+                                        hyperparam_mutations={"l1_units": [464, 496, 528, 560, 576],
+                                                              "l2_units": [208, 240, 272, 304, 328],
+                                                              "l3_units": [80, 112, 144, 176, 208]})
     
-    reporter = CLIReporter(parameter_columns=["l1_units", "l2_units", "l3_units", "lambda", "dropout"],
+    reporter = CLIReporter(parameter_columns=["l1_units", "l2_units", "l3_units", "lambda", ],
                            metric_columns=["loss", "training_iteration"])
     
     analysis = tune.run(tune.with_parameters(train, batch_size=args.batch_size, num_epochs=args.num_epochs,
                                              num_gpus=args.num_gpus),
                         resources_per_trial={"cpu": args.num_cpus, "gpu": args.num_gpus}, metric="loss",
                         mode="min", config=config, num_samples=args.num_trials, scheduler=scheduler,
-                        progress_reporter=reporter, max_failures=2, name="tune_cae")
+                        progress_reporter=reporter, max_failures=3, stop={"training_iteration": 10},
+                        name="tune_cae")
     
     print(f"Found best hyperparameters: {analysis.best_config}")
 
@@ -54,6 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpus', default=1, type=int)
     parser.add_argument('--num_cpus', default=1, type=int)
     parser.add_argument('--num_trials', default=10, type=int)
+    parser.add_argument('--resume', const=True, nargs="?")
     
     args = parser.parse_args()
     
