@@ -1,13 +1,11 @@
-import torch
-from torch.autograd import Variable
-from torch.nn import MSELoss
-
-import data_loader as dl
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 import argparse
 import os
-from CAE import Encoder, Decoder
-from CAE import loss_function
+from CAE import ContractiveAutoEncoder
 from plotly import graph_objs as go
+import pytorch_lightning as pl
+import data_loader as dl
+from torch import nn
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
@@ -25,62 +23,25 @@ def plot(inp, output, title):
     fig.show()
 
 
-def main(args):
+def train(args):
     if not os.path.exists(f"{project_path}/{args.model_path}"):
         os.makedirs(f"{project_path}/{args.model_path}")
     
-    training_data = dl.loader(50000, 100)
-    validation_data = dl.loader(7500, 1, 50000)
+    pl.seed_everything(42)
+    training = dl.loader(55000, args.batch_size, 0)
+    validation = dl.loader(8250, 1, 55000)
+    test = dl.loader(5000, 1, 63250)
     
-    encoder = Encoder()
-    decoder = Decoder()
-    if torch.cuda.is_available():
-        encoder.cuda()
-        decoder.cuda()
+    cae = ContractiveAutoEncoder(training, validation, config={'actv': nn.SELU}, test_dataloader=test)
+    es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=10, mode='min', verbose=True)
+    checkpointing = ModelCheckpoint(monitor='val_loss', dirpath=f"{project_path}/models/", filename="cae",
+                                    verbose=True, save_top_k=3)
     
-    mse_loss = MSELoss()
-    params = list(encoder.parameters()) + list(decoder.parameters())
-    optimizer = torch.optim.Adam(params, lr=1e-4)
-    total_loss = []
-    for epoch in range(args.num_epochs):
-        print(f"Epoch {epoch}/{args.num_epochs}:")
-        avg_loss = 0
-        for batch, inp in enumerate(training_data):
-            optimizer.zero_grad()
-            decoder.zero_grad()
-            encoder.zero_grad()
-            inp = Variable(inp).cuda().float()
-            # ===================forward=====================
-            h = encoder(inp)
-            output = decoder(h)
-            keys = encoder.state_dict().keys()
-            weight = encoder.state_dict()['encoder.6.weight']
-            loss = loss_function(weight, inp, output, h)
-            avg_loss += loss.data[0]
-            if batch == 100 and (epoch + 1) % 20 == 0:
-                plot(inp[50], output[50], 'Training')
-            # ===================backward====================
-            loss.mean().backward()
-            optimizer.step()
-        
-        avg_val_loss = 0
-        for n, val_inp in enumerate(validation_data):
-            val_inp = Variable(val_inp).cuda().float()
-            # ===================forward=====================
-            output = encoder(val_inp)
-            output = decoder(output)
-            loss = mse_loss(output, val_inp)
-            avg_val_loss += loss.item()
-            if n == 100 and (epoch + 1) % 20 == 0:
-                plot(val_inp, output, 'Validation')
-        # ===================backward====================
-        print(f"\t Average loss\t {avg_loss / len(training_data) / args.batch_size}\t Val loss\t "
-              f"{avg_val_loss / 7500}")
-        total_loss.append(avg_loss / (len(training_data) / args.batch_size))
+    trainer = pl.Trainer(gpus=1, auto_select_gpus=True, callbacks=[es, checkpointing],
+                         stochastic_weight_avg=True, deterministic=True, benchmark=True)
     
-    torch.save(encoder.state_dict(), f"{project_path}/{args.model_path}/cae_encoder.pt")
-    torch.save(decoder.state_dict(), f"{project_path}/{args.model_path}/cae_decoder.pt")
-    torch.save(total_loss, 'total_loss.dat')
+    trainer.fit(cae)
+    trainer.test()
 
 
 if __name__ == '__main__':
@@ -91,4 +52,4 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    main(args)
+    train(args)

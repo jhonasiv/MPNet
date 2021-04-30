@@ -1,4 +1,5 @@
 from abc import ABC
+from typing import Iterable
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -42,7 +43,7 @@ class EnvDataset(Dataset, ABC):
         if torch.is_tensor(item):
             item = item.tolist()
         
-        if isinstance(item, slice):
+        if isinstance(item, slice) or isinstance(item, Iterable):
             samples = []
             for perm in self.perms[item]:
                 sample = create_samples(perm, self.cached_perms)
@@ -54,9 +55,10 @@ class EnvDataset(Dataset, ABC):
 
 
 def loader(num_envs, batch_size, start_point=0):
+    batch_size = int(batch_size)
     dataset = EnvDataset(num_envs, start_point)
     if batch_size > 1:
-        dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=2, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=4, shuffle=True, pin_memory=True)
     else:
         dataloader = DataLoader(dataset)
     return dataloader
