@@ -48,7 +48,7 @@ def tuning(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', default=100, type=int)
-    parser.add_argument('--num-epochs', default=25, type=int)
+    parser.add_argument('--num_epochs', default=25, type=int)
     parser.add_argument('--num_gpus', default=1, type=int)
     parser.add_argument('--num_cpus', default=1, type=int)
     
