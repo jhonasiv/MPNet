@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', default=25, type=int)
     parser.add_argument('--num_gpus', default=1, type=int)
     parser.add_argument('--num_cpus', default=1, type=int)
-    parser.add_argument('--num_trial', default=10, type=int)
+    parser.add_argument('--num_trials', default=10, type=int)
     
     args = parser.parse_args()
     
