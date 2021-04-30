@@ -436,54 +436,6 @@ int main(int argc, char **argv) {
 	return 1;
 }
 
-//int publishEnvironment(lcm_t *lcm, region &regionOperating, region &regionGoal, list<region *> &obstacles) {
-//
-//	// Publish the environment
-//	lcmtypes_environment_t *environment = (lcmtypes_environment_t *) malloc(sizeof(lcmtypes_environment_t));
-//
-//	environment->operating.center[0] = regionOperating.center[0];
-//	environment->operating.center[1] = regionOperating.center[1];
-//	environment->operating.center[2] = 0.0;
-//	environment->operating.size[0] = regionOperating.size[0];
-//	environment->operating.size[1] = regionOperating.size[1];
-//	environment->operating.size[2] = 0.0;
-//
-//	environment->goal.center[0] = regionGoal.center[0];
-//	environment->goal.center[1] = regionGoal.center[1];
-//	environment->goal.center[2] = 0.0;
-//	environment->goal.size[0] = regionGoal.size[0];
-//	environment->goal.size[1] = regionGoal.size[1];
-//	environment->goal.size[2] = 0.0;
-//
-//	environment->num_obstacles = obstacles.size();
-//
-//	if (environment->num_obstacles > 0)
-//	{
-//		environment->obstacles = (lcmtypes_region_3d_t *) malloc(sizeof(lcmtypes_region_3d_t));
-//	}
-//
-//	int idx_obstacles = 0;
-//	for (list<region *>::iterator iter = obstacles.begin(); iter != obstacles.end(); iter++)
-//	{
-//
-//		region *obstacleCurr = *iter;
-//
-//		environment->obstacles[idx_obstacles].center[0] = obstacleCurr->center[0];
-//		environment->obstacles[idx_obstacles].center[1] = obstacleCurr->center[1];
-//		environment->obstacles[idx_obstacles].center[2] = 0.0;
-//		environment->obstacles[idx_obstacles].size[0] = obstacleCurr->size[0];
-//		environment->obstacles[idx_obstacles].size[1] = obstacleCurr->size[1];
-//		environment->obstacles[idx_obstacles].size[2] = 0.0;
-//
-//		idx_obstacles++;
-//	}
-//
-//	lcmtypes_environment_t_publish(lcm, "ENVIRONMENT", environment);
-//	lcmtypes_environment_t_destroy(environment);
-//
-//	return 1;
-//}
-
 int publishTraj(lcm_t *lcm,
                 planner_t &planner,
                 System &system,
