@@ -7,6 +7,7 @@ from CAE import ContractiveAutoEncoder
 import pytorch_lightning as pl
 import data_loader as dl
 import argparse
+from torch import nn
 
 
 def train(config, batch_size, num_epochs=20, num_gpus=0):
@@ -27,7 +28,8 @@ def tuning(args):
               "l2_units": tune.choice([224, 256, 288]),
               "l3_units": tune.choice([96, 128, 160]),
               "lambda":   tune.choice([1e-3, 1e-4, 1e-5]),
-              "dropout":  tune.choice([0, 0.1, 0.2, 0.3])}
+              "dropout":  tune.choice([0, 0.1, 0.2, 0.3]),
+              "actv":     tune.choice([nn.SELU])}
     scheduler = PopulationBasedTraining(perturbation_interval=4,
                                         hyperparam_mutations={"l1_units": [448, 480, 512, 544, 576],
                                                               "l2_units": [192, 224, 256, 288, 312],
