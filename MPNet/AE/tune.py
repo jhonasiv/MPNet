@@ -39,8 +39,8 @@ def tuning(args):
     analysis = tune.run(tune.with_parameters(train, batch_size=args.batch_size, num_epochs=args.num_epochs,
                                              num_gpus=args.num_gpus),
                         resources_per_trial={"cpu": args.num_cpus, "gpu": args.num_gpus}, metric="loss",
-                        mode="min", config=config, num_samples=3, scheduler=scheduler, progress_reporter=reporter,
-                        name="tune_cae")
+                        mode="min", config=config, num_samples=args.num_trials, scheduler=scheduler,
+                        progress_reporter=reporter, max_failures=2, name="tune_cae")
     
     print(f"Found best hyperparameters: {analysis.best_config}")
 
@@ -51,6 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', default=25, type=int)
     parser.add_argument('--num_gpus', default=1, type=int)
     parser.add_argument('--num_cpus', default=1, type=int)
+    parser.add_argument('--num_trial', default=10, type=int)
     
     args = parser.parse_args()
     
