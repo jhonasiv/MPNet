@@ -57,7 +57,7 @@ int publishTree(lcm_t *lcm, planner_t &planner, System &system);
 
 int publishPC(lcm_t *lcm, double nodes[8000][2], int sze, System &system);
 
-int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod, string filepath);
+int publishTraj(lcm_t *lcm, planner_t &planner, System &system, int num, string fod, string filepath, string envFolder);
 // lcm_t *lcm, region& regionOperating, region& regionGoal,list<region*>& obstacles
 // int publishEnvironment (lcm_t *lcm);
 
@@ -191,12 +191,19 @@ int main(int argc, char **argv) {
 	}
 	int startId = 0;
 	int numRuns = 5;
+	int numPaths = 4000;
+	string envFolder = "env";
 	switch (argc)
 	{
 	case 2: startId = atoi(argv[1]);
 		break;
 	case 3: startId = atoi(argv[1]);
 		numRuns = atoi(argv[2]);
+		break;
+	case 4: startId = atoi(argv[1]);
+		numRuns = atoi(argv[2]);
+		numPaths = atoi(argv[3]);
+		envFolder = "valEnv";
 		break;
 	}
 
@@ -224,15 +231,17 @@ int main(int argc, char **argv) {
 	int pathId = 0;
 	for (int env_no = startId; env_no < startId + numRuns; env_no++)
 	{
-		try{
+		try
+		{
 
-			pathId = getNewPathId(filepath + "/env/e" + to_string(env_no) + "/");
+			pathId = getNewPathId(filepath + "/" + envFolder + "/e" + to_string(env_no) + "/");
 		}
-		catch (fs::filesystem_error){
-			fs::create_directories(filepath + "/env/e" + to_string(env_no));
+		catch (fs::filesystem_error)
+		{
+			fs::create_directories(filepath + "/" + envFolder + "/e" + to_string(env_no));
 			pathId = 0;
 		}
-		for (int idx = pathId; idx < 4000; idx++)
+		for (int idx = pathId; idx < numPaths; idx++)
 		{
 			cout << "Env: " << env_no << "\tidx " << idx << endl;
 
@@ -414,7 +423,7 @@ int main(int argc, char **argv) {
 
 			// publishTree (lcm, rrts, system);
 			// stores path in the folder env_no
-			auto result = publishTraj(lcm, rrts, system, idx, to_string(env_no), filepath);
+			auto result = publishTraj(lcm, rrts, system, idx, to_string(env_no), filepath, envFolder);
 			if (!result)
 			{
 				idx--;
@@ -480,7 +489,8 @@ int publishTraj(lcm_t *lcm,
                 System &system,
                 int num,
                 string fod,
-                string filepath) {
+                string filepath,
+                string envFolder) {
 
 	cout << "Publishing trajectory -- start" << endl;
 
@@ -540,10 +550,12 @@ int publishTraj(lcm_t *lcm,
 		stateIndex++;
 	}
 
-	ofstream out((filepath + "/env/e" + fod + "/path" + to_string(num) + ".dat").c_str(), ios::out | ios::binary);
+	ofstream out((filepath + "/" + envFolder + "/e" + fod + "/path" + to_string(num) + ".dat").c_str(), ios::out |
+		ios::binary);
 	if (!out)
 	{
-		cout << "Cannot open file: " << filepath << "/env/e" << fod << "/path" << to_string(num) << ".dat\n";
+		cout << "Cannot open file: " << filepath << "/" << envFolder << "/e" << fod << "/path" << to_string(num)
+		     << ".dat\n";
 		return 1;
 	}
 

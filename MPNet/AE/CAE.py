@@ -4,18 +4,13 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 import pytorch_lightning as pl
-from torch.nn import Dropout
 from torch.nn.functional import mse_loss
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-import numpy as np
-
-from data_loader import loader
-
 
 class ContractiveAutoEncoder(pl.LightningModule):
-    def __init__(self, training_dataloader=None, val_dataloader=None, config: Dict = None, reduce: bool = False):
+    def __init__(self, training_dataloader=None, val_dataloader=None, config: Dict = {}, reduce: bool = False):
         super(ContractiveAutoEncoder, self).__init__()
         self.training_dataloader = training_dataloader
         self.validation_dataloader = val_dataloader
@@ -28,15 +23,14 @@ class ContractiveAutoEncoder(pl.LightningModule):
         l3_units = config.get("l3_units", 128)
         actv = config.get("actv", nn.PReLU)
         self.lambd = config.get("lambda", 1e-3)
-        dropout = config.get("dropout", 0)
         
-        self.encoder = nn.Sequential(nn.Linear(2800, l1_units), actv(), Dropout(dropout),
-                                     nn.Linear(l1_units, l2_units), actv(), Dropout(dropout),
-                                     nn.Linear(l2_units, l3_units), actv(), Dropout(dropout))
+        self.encoder = nn.Sequential(nn.Linear(2800, l1_units), actv(),
+                                     nn.Linear(l1_units, l2_units), actv(),
+                                     nn.Linear(l2_units, l3_units), actv())
         self.encoder.add_module("embedding", nn.Linear(l3_units, 28))
-        self.decoder = nn.Sequential(nn.Linear(28, l3_units), actv(), Dropout(dropout),
-                                     nn.Linear(l3_units, l2_units), actv(), Dropout(dropout),
-                                     nn.Linear(l2_units, l1_units), actv(), Dropout(dropout),
+        self.decoder = nn.Sequential(nn.Linear(28, l3_units), actv(),
+                                     nn.Linear(l3_units, l2_units), actv(),
+                                     nn.Linear(l2_units, l1_units), actv(),
                                      nn.Linear(l1_units, 2800))
         self.code = None
     
