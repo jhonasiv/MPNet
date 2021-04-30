@@ -4,18 +4,13 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 import pytorch_lightning as pl
-from torch.nn import Dropout
 from torch.nn.functional import mse_loss
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-import numpy as np
-
-from data_loader import loader
-
 
 class ContractiveAutoEncoder(pl.LightningModule):
-    def __init__(self, training_dataloader=None, val_dataloader=None, config: Dict = None, reduce: bool = False):
+    def __init__(self, training_dataloader=None, val_dataloader=None, config: Dict = {}, reduce: bool = False):
         super(ContractiveAutoEncoder, self).__init__()
         self.training_dataloader = training_dataloader
         self.validation_dataloader = val_dataloader
