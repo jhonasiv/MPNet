@@ -13,7 +13,7 @@ def train(config, batch_size, num_epochs=20, num_gpus=0):
     training = dl.loader(55000, batch_size, 0)
     validation = dl.loader(8250, 1, 55000)
     cae = ContractiveAutoEncoder(training_dataloader=training, val_dataloader=validation, config=config)
-    trainer = pl.Trainer(max_epochs=num_epochs, gpus=num_gpus, auto_select_gpus=True,
+    trainer = pl.Trainer(max_epochs=num_epochs, gpus=num_gpus, auto_select_gpus=True if num_gpus else False,
                          logger=TensorBoardLogger(save_dir=tune.get_trial_dir(), name="", version='.'),
                          stochastic_weight_avg=True, benchmark=True,
                          callbacks=[TuneReportCheckpointCallback({"loss": "val_loss"},
