@@ -241,7 +241,7 @@ int main(int argc, char **argv) {
 			fs::create_directories(filepath + "/" + envFolder + "/e" + to_string(env_no));
 			pathId = 0;
 		}
-		for (int idx = pathId; idx < numRuns; idx++)
+		for (int idx = pathId; idx < numPaths; idx++)
 		{
 			cout << "Env: " << env_no << "\tidx " << idx << endl;
 
