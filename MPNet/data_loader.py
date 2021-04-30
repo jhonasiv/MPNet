@@ -1,6 +1,7 @@
 import os
 from abc import ABC
 
+import numpy as np
 import torch
 from torch.utils.data import IterableDataset
 
@@ -18,11 +19,22 @@ def load_envs(folder, qtt):
     return envs, env_names
 
 
-def get_path_files(folder, env_name):
-    path_files = os.listdir(f"{project_path}")
+def get_path_files(folder, env_name, qtt):
+    path_files = os.listdir(f"{project_path}/{folder}/{env_name}")
+    path_files = [file for file in path_files if int(file.split("path")[-1].split('.')[0]) < qtt]
+    return path_files
 
-def join_path_files(path_files, env_names):
-    pass
+
+def join_path_files(folder, env_names, paths_per_env, filename):
+    data = []
+    for env_name in env_names:
+        path_files = get_path_files(folder, env_name, paths_per_env)
+        for file in path_files:
+            path = np.fromfile(f"{project_path}/{folder}/{env_name}/{file}", dtype=float).reshape((-1, 2))
+            for n, point in enumerate(path[:-1]):
+                data.append([[env_name, point, path[-1]], [path[n + 1]]])
+    data = np.array(data)
+    np.save(f"{project_path}/processed/{filename}", data)
 
 
 def process_data_files(envs, path_files, cae):
@@ -42,5 +54,7 @@ class MPNetDataLoader(IterableDataset, ABC):
 
 
 if __name__ == '__main__':
-    env, env_names = load_envs('env', 10)
-    process_data_files(env, None, None)
+    a = np.load(f"{project_path}/processed/training.npy", allow_pickle=True)
+    env, names = load_envs('env', 100)
+    path_names = []
+    join_path_files('env', names, 4000, 'training')
