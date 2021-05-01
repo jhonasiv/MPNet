@@ -4,8 +4,7 @@ import torch.nn as nn
 import numpy as np
 import os
 import pickle
-from data_loader import load_dataset 
-from model import MLP 
+from model import MLP
 from torch.autograd import Variable 
 import math
 

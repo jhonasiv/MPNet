@@ -7,7 +7,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 from plotly import graph_objs as go
 import math
-from AE.data_loader import loader
+from enet.data_loader import loader
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 

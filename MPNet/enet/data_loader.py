@@ -1,10 +1,10 @@
+import os
 from abc import ABC
 from typing import Iterable
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
-import numpy as np
-import os
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
@@ -17,7 +17,7 @@ def load_perms(num, start_point=0):
     return perms[start_point: start_point + num]
 
 
-def create_samples(perm_unit, cached_perm):
+def create_samples(perm_unit, cached_perm={}):
     samples = []
     for obs in perm_unit:
         if tuple(obs) not in cached_perm.keys():

@@ -1,9 +1,9 @@
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
+import pytorch_lightning as pl
 import torch
 from torch import nn
 from torch.autograd import Variable
-import pytorch_lightning as pl
 from torch.nn.functional import mse_loss
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
@@ -66,7 +66,7 @@ class ContractiveAutoEncoder(pl.LightningModule):
     def configure_optimizers(self):
         optim = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         if self.reduce:
-            reduce_lr = ReduceLROnPlateau(self.optim, mode='min', factor=0.2, patience=6, cooldown=2,
+            reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=6, cooldown=2,
                                           threshold=1e-4, verbose=True, min_lr=1e-6, threshold_mode='abs')
             gen_scheduler = {"scheduler": reduce_lr, 'reduce_on_plateau': True, 'monitor': 'val_loss'}
             
