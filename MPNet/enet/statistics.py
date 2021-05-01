@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import warnings
 from typing import Dict
 
@@ -14,7 +15,7 @@ from torch import nn
 from MPNet.enet.CAE import ContractiveAutoEncoder
 from MPNet.enet.data_loader import loader
 
-project_path = "gs://"
+project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
 
 class TrainingDataCallback(pl.Callback):
@@ -92,7 +93,7 @@ def main(args):
         for itt in range(args.itt):
             pl.seed_everything(itt)
             p = mp.Process(target=worker,
-                           args=(config, n, itt, training, validation, args.num_gpus, args.log_path))
+                           args=(config, n, itt, training, validation, args.num_gpus, args.log_path, args.workers))
             p.start()
             processes.append(p)
             while int(len(processes)) == args.workers:
@@ -104,15 +105,15 @@ def main(args):
         proc.join()
 
 
-def worker(config, idx, itt, training, validation, num_gpus, log_path):
+def worker(config, idx, itt, training, validation, num_gpus, log_path, num_workers):
     print(f"Starting worker for config {idx} -> iteration {itt}")
     
-    torch.set_num_threads(1)
+    torch.set_num_threads(num_workers // os.cpu_count())
     es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=10, mode='min', verbose=True)
     logging = TrainingDataCallback(f"{project_path}/{log_path}/cae_{idx}_{itt}.json",
                                    log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging], max_epochs=10,
-                         progress_bar_refresh_rate=1, weights_summary='full')
+                         progress_bar_refresh_rate=0, weights_summary=None)
     cae = ContractiveAutoEncoder(training, validation, config, reduce=True)
     
     trainer.fit(cae)
