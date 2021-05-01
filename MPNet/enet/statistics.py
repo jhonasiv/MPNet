@@ -6,6 +6,7 @@ from typing import Dict
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import torch.multiprocessing as mp
 from gcloud import storage
 from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import EarlyStopping
@@ -37,8 +38,10 @@ class TrainingDataCallback(pl.Callback):
         self.stats['val_loss'] = self.stats['val_loss'][min_idx][0]
         self.stats['epoch'] = self.stats['epoch'][min_idx][0]
         
-        blob = self.bucket.blob(self.log_file)
-        blob.upload_from_string(json.dumps(self.stats))
+        with open(f"{self.bucket}/{self.log_file}", "w") as f:
+            json.dump(self.stats, f)
+        # blob = self.bucket.blob(self.log_file)
+        # blob.upload_from_string(json.dumps(self.stats))
     
     def on_validation_end(self, trainer, pl_module: LightningModule) -> None:
         for key, val in self.stats.items():
@@ -90,8 +93,8 @@ def main(args):
     for n, config in enumerate(configs):
         for itt in range(args.itt):
             pl.seed_everything(itt)
-            p = mp.Process(target=worker, args=(config, n, itt, training, validation, args.num_gpus,
-                                                args.gcloud_project, args.bucket, args.log_path))
+            p = mp.Process(target=worker,
+                           args=(config, n, itt, training, validation, args.num_gpus, args.log_path))
             p.start()
             processes.append(p)
             while int(len(processes)) == args.workers:
@@ -103,15 +106,13 @@ def main(args):
         proc.join()
 
 
-def worker(config, idx, itt, training, validation, num_gpus, project, bucket_name, log_path):
+def worker(config, idx, itt, training, validation, num_gpus, log_path):
     print(f"Starting worker for config {idx} -> iteration {itt}")
-    
-    client = storage.Client(project)
-    bucket = client.get_bucket(bucket_name)
     
     torch.set_num_threads(1)
     es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=10, mode='min', verbose=True)
-    logging = TrainingDataCallback(bucket, f"{log_path}/cae_{idx}_{itt}.json", log_stats=["val_loss", "epoch"])
+    logging = TrainingDataCallback(f"{project_path}/{log_path}/cae_{idx}_{itt}.json",
+                                   log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging], max_epochs=10,
                          progress_bar_refresh_rate=1, weights_summary='full')
     cae = ContractiveAutoEncoder(training, validation, config, reduce=True)
@@ -133,4 +134,3 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     main(args)
-# Multiprocessing failure
