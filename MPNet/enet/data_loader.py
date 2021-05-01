@@ -1,19 +1,21 @@
-import os
 from abc import ABC
 from typing import Iterable
 
 import numpy as np
 import torch
+from google.cloud import storage
 from torch.utils.data import DataLoader, Dataset
 
-project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
-
-def load_perms(num, start_point=0):
-    perms = np.loadtxt(f'{project_path}/obs/perm.csv', delimiter=',')
+def load_perms(project, bucket_name, path, num, start_point=0):
+    client = storage.Client(project)
+    bucket = client.get_bucket(bucket_name)
+    
+    with bucket.blob(path).open('r') as f:
+        perms = np.loadtxt(f, delimiter=',')
+    perms = perms.reshape((-1, 7, 2))
     assert num + start_point < len(perms), f"Dataset has shape {perms.shape}. Received request for " \
                                            f"{num + start_point} data points."
-    perms = perms.reshape((-1, 7, 2))
     return perms[start_point: start_point + num]
 
 
@@ -31,9 +33,9 @@ def create_samples(perm_unit, cached_perm={}):
 
 
 class EnvDataset(Dataset, ABC):
-    def __init__(self, size, start_point=0):
+    def __init__(self, size, start_point=0, project="", bucket_name="", path=""):
         super().__init__()
-        self.perms = load_perms(size, start_point)
+        self.perms = load_perms(project, bucket_name, path, size, start_point)
         self.cached_perms = {}
     
     def __len__(self):
@@ -54,11 +56,11 @@ class EnvDataset(Dataset, ABC):
         return torch.from_numpy(sample)
 
 
-def loader(num_envs, batch_size, start_point=0):
+def loader(project, bucket_name, path, num_envs, batch_size, start_point=0, workers=0):
     batch_size = int(batch_size)
-    dataset = EnvDataset(num_envs, start_point)
+    dataset = EnvDataset(num_envs, start_point, project=project, bucket_name=bucket_name, path=path)
     if batch_size > 1:
-        dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=4, shuffle=True, pin_memory=True)
+        dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=workers, shuffle=True, pin_memory=True)
     else:
         dataloader = DataLoader(dataset)
     return dataloader
