@@ -7,7 +7,6 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.multiprocessing as mp
-from gcloud import storage
 from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import EarlyStopping
 from torch import nn
@@ -19,9 +18,8 @@ project_path = "gs://"
 
 
 class TrainingDataCallback(pl.Callback):
-    def __init__(self, bucket: storage.Bucket, log_file: str, log_stats: Dict):
+    def __init__(self, log_file: str, log_stats: Dict):
         super().__init__()
-        self.bucket = bucket
         self.log_file = log_file
         check_for_error = [key for key in log_stats if key not in ("epoch", "val_loss")]
         if check_for_error:
@@ -38,7 +36,7 @@ class TrainingDataCallback(pl.Callback):
         self.stats['val_loss'] = self.stats['val_loss'][min_idx][0]
         self.stats['epoch'] = self.stats['epoch'][min_idx][0]
         
-        with open(f"{self.bucket}/{self.log_file}", "w") as f:
+        with open(self.log_file, "w") as f:
             json.dump(self.stats, f)
         # blob = self.bucket.blob(self.log_file)
         # blob.upload_from_string(json.dumps(self.stats))
