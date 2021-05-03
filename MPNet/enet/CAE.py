@@ -43,7 +43,7 @@ class ContractiveAutoEncoder(pl.LightningModule):
     def init_weights(self):
         def init_for_selu(m):
             if type(m) == torch.nn.Linear:
-                torch.nn.init.kaiming_normal_(m.weight, nonlinearity='selu')
+                torch.nn.init.kaiming_normal_(m.weight, nonlinearity='linear')
         
         self.apply(init_for_selu)
     

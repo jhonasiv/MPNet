@@ -40,9 +40,8 @@ def plot(qtt, samples, enet, title):
 def main(args):
     envs = load_env(args.num)
     samples = np.array(list(map(dl.create_samples, envs)))
-    enets = ['cae.ckpt', 'cae_selu.ckpt', 'cae_selu-v1.ckpt', 'cae_selu-v3.ckpt']
-    for enet_ckpt in enets:
-        enet = ContractiveAutoEncoder.load_from_checkpoint(f"{project_path}/models/{enet_ckpt}")
+    for enet_ckpt in args.enets:
+        enet = ContractiveAutoEncoder.load_from_checkpoint(enet_ckpt)
         enet.freeze()
         plot(args.num, samples, enet, enet_ckpt)
 
@@ -50,6 +49,6 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--num', default=5, type=int)
-    parser.add_argument('--enet', default="", type=str, required=True)
+    parser.add_argument('--enets', nargs='+', default=[], required=True)
     
     main(parser.parse_args())

@@ -53,7 +53,7 @@ def main(args):
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU},
                ]
     
-    training = loader(55000, 250, 0)
+    training = loader(55000, args.batch_size, 0)
     validation = loader(7500, 1, 55000)
     
     torch.set_num_interop_threads(1)
@@ -74,10 +74,10 @@ def main(args):
 def worker(config, idx, itt, training, validation, num_gpus):
     print(f"Starting worker for config {idx} -> iteration {itt}")
     torch.set_num_threads(1)
-    es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=10, mode='min', verbose=True)
+    es = EarlyStopping(monitor='val_loss', min_delta=1e-2, patience=12, mode='min', verbose=True)
     logging = TrainingDataCallback(f"{project_path}/data/cae_{idx}_{itt}.json", log_stats=["val_loss", "epoch"])
-    trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging], max_epochs=10,
-                         progress_bar_refresh_rate=0, weights_summary=None)
+    trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
+                         progress_bar_refresh_rate=0, weights_summary=None, benchmark=True)
     cae = ContractiveAutoEncoder(training, validation, config, reduce=True)
     
     trainer.fit(cae)
@@ -89,6 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpus', type=int, default=0)
     parser.add_argument('--workers', type=int, default=3)
     parser.add_argument('--itt', type=int, default=20)
+    parser.add_argument('--batch_size', default=100, type=int)
     
     args = parser.parse_args()
     main(args)
