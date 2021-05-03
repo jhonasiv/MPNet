@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Union
 import pytorch_lightning as pl
 from torch import nn
 from torch.nn.functional import mse_loss
-from torch.optim import Adam
+from torch.optim import Adagrad, Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
@@ -13,6 +13,8 @@ class PNet(pl.LightningModule):
                  test_dataloader=None, config: Dict = {}, reduce=False):
         super(PNet, self).__init__()
         
+        if config:
+            self.save_hyperparameters(config)
         self.training_dataloader = training_dataloader
         self.validation_dataloader = validation_dataloader
         self.test_dataloader = test_dataloader
@@ -37,16 +39,17 @@ class PNet(pl.LightningModule):
         if linear:
             self.fc.add_module("output_activation", activation())
         
+        self.learning_rate = 1e-3
         self.reduce = reduce
     
     def training_step(self, batch, batch_idx):
-        x, y = batch.float()
+        x, y = batch
         x = self.fc(x)
         loss = mse_loss(x, y)
         return loss
     
     def validation_step(self, batch, batch_idx):
-        x, y = batch.float()
+        x, y = batch
         x = self.fc(x)
         loss = mse_loss(x, y)
         self.log("val_loss", loss)
@@ -57,7 +60,7 @@ class PNet(pl.LightningModule):
         return out
     
     def configure_optimizers(self):
-        optim = Adam(self.parameters(), lr=self.learning_rate)
+        optim = Adagrad(self.parameters(), lr=self.learning_rate)
         if self.reduce:
             reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=6, cooldown=2,
                                           threshold=1e-4, verbose=True, min_lr=1e-6, threshold_mode='abs')
@@ -75,9 +78,9 @@ class PNet(pl.LightningModule):
     
     def train_dataloader(self) -> Any:
         return self.training_dataloader
-    
+
     def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return self.validation_dataloader
-    
+
     def test_dataloader(self):
         return self.test_dataloader

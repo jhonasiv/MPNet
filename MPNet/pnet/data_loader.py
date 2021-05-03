@@ -56,21 +56,21 @@ class FromTar:
         self._ae = ae
     
     def decode(self, sample):
-        inp = torch.from_numpy(np.frombuffer(sample['trajectory.ten']).reshape((-1,)))
-        target = torch.from_numpy(np.frombuffer(sample['target.ten']))
+        inp = torch.from_numpy(np.frombuffer(sample['trajectory.ten']).reshape((-1,))).float()
+        target = torch.from_numpy(np.frombuffer(sample['target.ten'])).float()
         env = torch.from_numpy(np.frombuffer(sample['env.ten'])).float()
         env = self._ae(env)
         
         resulting_input = torch.cat([env, inp])
-        return resulting_input, target
+        return tuple([resulting_input, target])
     
     def load_dataset(self, file_path, batch_size=1, num_workers=0, shuffle=0, ae=None):
         self._ae = ae
         dataset = wds.Dataset(file_path)
-        dataset = wds.Processor(dataset, wds.map, self.decode)
+        dataset = wds.Processor(dataset, wds.map, self.decode).batched(batch_size)
         if shuffle:
             dataset = dataset.shuffle(shuffle)
-        dataset = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
+        dataset = DataLoader(dataset, batch_size=None, shuffle=False, num_workers=num_workers)
         return dataset
 
 

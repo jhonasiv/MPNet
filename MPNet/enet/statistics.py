@@ -87,7 +87,7 @@ def worker(config, idx, itt, training, validation, num_gpus, log_path, gcloud_pr
     print(f"Starting worker for config {idx} -> iteration {itt}")
     
     torch.set_num_threads(1)
-    es = EarlyStopping(monitor='val_loss', min_delta=1e-2, patience=12, mode='min', verbose=True)
+    es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
     logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{idx}_{itt}.json",
                                    log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
