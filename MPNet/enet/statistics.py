@@ -92,7 +92,7 @@ def worker(config, idx, itt, training, validation, num_gpus, log_path, gcloud_pr
                                    log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
                          progress_bar_refresh_rate=0, weights_summary=None)
-    cae = ContractiveAutoEncoder(training, validation, config, reduce=True)
+    cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True)
     
     trainer.fit(cae)
     print(f"\nWorker done for config {idx} -> iteration {itt}\n")
