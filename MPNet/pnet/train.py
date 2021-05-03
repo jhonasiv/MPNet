@@ -1,100 +1,34 @@
 import argparse
-import torch
-import torch.nn as nn
-import numpy as np
 import os
-import pickle
-from model import MLP
-from torch.autograd import Variable 
-import math
 
-def to_var(x, volatile=False):
-	if torch.cuda.is_available():
-		x = x.cuda()
-	return Variable(x, volatile=volatile)
+import pytorch_lightning as pl
 
-def get_input(i,data,targets,bs):
+from MPNet.enet.CAE import ContractiveAutoEncoder
+from data_loader import FromTar
 
-	if i+bs<len(data):
-		bi=data[i:i+bs]
-		bt=targets[i:i+bs]	
-	else:
-		bi=data[i:]
-		bt=targets[i:]
-		
-	return torch.from_numpy(bi),torch.from_numpy(bt)
+project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
 
+def train(args):
+    if not os.path.exists(f"{project_path}/{args.model_path}"):
+        os.makedirs(f'{project_path}/{args.model_path}')
     
-def main(args):
-	# Create model directory
-	if not os.path.exists(args.model_path):
-		os.makedirs(args.model_path)
+    pl.seed_everything(42)
     
-    
-	# Build data loader
-	dataset,targets= load_dataset() 
-	
-	# Build the models
-	mlp = MLP(args.input_size, args.output_size)
-    
-	if torch.cuda.is_available():
-		mlp.cuda()
+    cae = ContractiveAutoEncoder.load_from_checkpoint(args.enet)
+    tar_loader = FromTar()
+    training = tar_loader.load_dataset(f"{project_path}/datasets/training.tar", 250, shuffle=5000, ae=cae)
+    validation = tar_loader.load_dataset(cae)
 
-	# Loss and Optimizer
-	criterion = nn.MSELoss()
-	optimizer = torch.optim.Adagrad(mlp.parameters()) 
-    
-	# Train the Models
-	total_loss=[]
-	print len(dataset)
-	print len(targets)
-	sm=100 # start saving models after 100 epochs
-	for epoch in range(args.num_epochs):
-		print "epoch" + str(epoch)
-		avg_loss=0
-		for i in range (0,len(dataset),args.batch_size):
-			# Forward, Backward and Optimize
-			mlp.zero_grad()			
-			bi,bt= get_input(i,dataset,targets,args.batch_size)
-			bi=to_var(bi)
-			bt=to_var(bt)
-			bo = mlp(bi)
-			loss = criterion(bo,bt)
-			avg_loss=avg_loss+loss.data[0]
-			loss.backward()
-			optimizer.step()
-		print "--average loss:"
-		print avg_loss/(len(dataset)/args.batch_size)
-		total_loss.append(avg_loss/(len(dataset)/args.batch_size))
-		# Save the models
-		if epoch==sm:
-			model_path='mlp_100_4000_PReLU_ae_dd'+str(sm)+'.pkl'
-			torch.save(mlp.state_dict(),os.path.join(args.model_path,model_path))
-			sm=sm+50 # save model after every 50 epochs from 100 epoch ownwards
-	torch.save(total_loss,'total_loss.dat')
-	model_path='mlp_100_4000_PReLU_ae_dd_final.pkl'
-	torch.save(mlp.state_dict(),os.path.join(args.model_path,model_path))
+
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument('--model_path', type=str, default='./models/',help='path for saving trained models')
-	parser.add_argument('--no_env', type=int, default=50,help='directory for obstacle images')
-	parser.add_argument('--no_motion_paths', type=int,default=2000,help='number of optimal paths in each environment')
-	parser.add_argument('--log_step', type=int , default=10,help='step size for prining log info')
-	parser.add_argument('--save_step', type=int , default=1000,help='step size for saving trained models')
-
-	# Model parameters
-	parser.add_argument('--input_size', type=int , default=32, help='dimension of the input vector')
-	parser.add_argument('--output_size', type=int , default=2, help='dimension of the input vector')
-	parser.add_argument('--hidden_size', type=int , default=256, help='dimension of lstm hidden states')
-	parser.add_argument('--num_layers', type=int , default=4, help='number of layers in lstm')
-
-	parser.add_argument('--num_epochs', type=int, default=500)
-	parser.add_argument('--batch_size', type=int, default=100)
-	parser.add_argument('--learning_rate', type=float, default=0.0001)
-	args = parser.parse_args()
-	print(args)
-	main(args)
-
-
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_path', type=str, default='./models/', help='path for saving trained models')
+    parser.add_argument('--enet', default="", type=str, required=True)
+    
+    parser.add_argument('--num_epochs', type=int, default=500)
+    parser.add_argument('--batch_size', type=int, default=250)
+    parser.add_argument('--learning_rate', type=float, default=1 - 4)
+    args = parser.parse_args()
+    
+    train(args)

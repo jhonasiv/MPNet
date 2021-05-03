@@ -16,6 +16,8 @@ from torch import nn
 from MPNet.enet.CAE import ContractiveAutoEncoder
 from MPNet.enet.data_loader import loader
 
+warnings.filterwarnings("ignore",category=UserWarning)
+
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
 
@@ -57,7 +59,7 @@ def main(args):
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU},
                ]
     
-    training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, 250, 0)
+    training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0)
     validation = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 7500, 1, 55000)
     
     torch.set_num_interop_threads(1)
@@ -67,8 +69,9 @@ def main(args):
             pl.seed_everything(itt)
             p = mp.Process(target=worker,
                            args=(
-                           config, n, itt, training, validation, args.num_gpus, args.log_path, args.gcloud_project,
-                           args.bucket))
+                               config, n, itt, training, validation, args.num_gpus, args.log_path,
+                               args.gcloud_project,
+                               args.bucket))
             p.start()
             processes.append(p)
             while int(len(processes)) == args.workers:
@@ -84,10 +87,10 @@ def worker(config, idx, itt, training, validation, num_gpus, log_path, gcloud_pr
     print(f"Starting worker for config {idx} -> iteration {itt}")
     
     torch.set_num_threads(1)
-    es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=10, mode='min', verbose=True)
+    es = EarlyStopping(monitor='val_loss', min_delta=1e-2, patience=12, mode='min', verbose=True)
     logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{idx}_{itt}.json",
                                    log_stats=["val_loss", "epoch"])
-    trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging], max_epochs=2,
+    trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
                          progress_bar_refresh_rate=0, weights_summary=None)
     cae = ContractiveAutoEncoder(training, validation, config, reduce=True)
     
@@ -105,6 +108,7 @@ if __name__ == '__main__':
     parser.add_argument('--bucket', default="", type=str, required=True)
     parser.add_argument('--model_id', default=0, type=int)
     parser.add_argument('--log_path', default="data", type=str)
+    parser.add_argument('--batch_size', default=100, type=int)
     
     args = parser.parse_args()
     main(args)

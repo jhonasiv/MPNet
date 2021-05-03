@@ -4,7 +4,7 @@ import numpy as np
 import os
 import pickle
 from MPNet.pnet.data_loader import load_test_dataset
-from MPNet.pnet.model import MLP
+from MPNet.pnet.model import PNet
 from torch.autograd import Variable 
 import math
 import time
@@ -12,7 +12,7 @@ import time
 size=5.0
 
 # Load trained model for path generation
-mlp = MLP(32, 2) # simple @D
+mlp = PNet(32, 2) # simple @D
 mlp.load_state_dict(torch.load('models/mlp_100_4000_PReLU_ae_dd150.pkl'))
 
 if torch.cuda.is_available():
