@@ -10,8 +10,6 @@ import MPNet.enet.data_loader as ae_dl
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
-ae = None
-
 
 class PathToTar:
     @staticmethod
@@ -54,24 +52,24 @@ class PathToTar:
 
 
 class FromTar:
-    ae = None
+    def __init__(self, ae=None):
+        self._ae = ae
     
-    @staticmethod
-    def decode(sample):
+    def decode(self, sample):
         inp = torch.from_numpy(np.frombuffer(sample['trajectory.ten']).reshape((-1,)))
         target = torch.from_numpy(np.frombuffer(sample['target.ten']))
         env = torch.from_numpy(np.frombuffer(sample['env.ten'])).float()
-        env = FromTar.ae(env)
+        env = self._ae(env)
         
         resulting_input = torch.cat([env, inp])
         return resulting_input, target
     
-    @staticmethod
-    def load_dataset(file_path, autoencoder, batch_size=1, num_workers=0):
-        FromTar.ae = autoencoder
+    def load_dataset(self, file_path, batch_size=1, num_workers=0, shuffle=0, ae=None):
+        self._ae = ae
         dataset = wds.Dataset(file_path)
-        dataset = wds.Processor(dataset, wds.map, FromTar.decode)
-        dataset = dataset.shuffle(5000)
+        dataset = wds.Processor(dataset, wds.map, self.decode)
+        if shuffle:
+            dataset = dataset.shuffle(shuffle)
         dataset = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
         return dataset
 
@@ -86,4 +84,4 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    PathToTar.to_tar(*args)
+    PathToTar.to_tar(args.parent, args.num_envs, args.paths_per_env, args.output_path)
