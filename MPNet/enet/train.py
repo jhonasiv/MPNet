@@ -30,12 +30,12 @@ def train(args):
     if not os.path.exists(f"{project_path}/{args.model_path}"):
         os.makedirs(f"{project_path}/{args.model_path}")
     
-    pl.seed_everything(42)
+    pl.seed_everything(2)
     training = dl.loader(55000, args.batch_size, 0)
     validation = dl.loader(8250, 1, 55000)
     test = dl.loader(5000, 1, 63250)
     
-    config = {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-3, "actv": nn.PReLU}
+    config = {"l1_units": 560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU}
     cae = ContractiveAutoEncoder(training, validation, config=config, test_dataloader=test, reduce=True)
     es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=10, mode='min', verbose=True)
     checkpointing = ModelCheckpoint(monitor='val_loss', dirpath=f"{project_path}/{args.model_path}/",

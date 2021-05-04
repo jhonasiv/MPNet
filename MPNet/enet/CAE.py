@@ -54,6 +54,7 @@ class ContractiveAutoEncoder(pl.LightningModule):
         return mse + contractive_loss
     
     def forward(self, inputs):
+        inputs = inputs.float()
         self.code = self.encoder(inputs)
         return self.code
     

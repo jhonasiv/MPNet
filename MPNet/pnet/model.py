@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Union
 import pytorch_lightning as pl
 from torch import nn
 from torch.nn.functional import mse_loss
-from torch.optim import Adam
+from torch.optim import Adagrad, Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
@@ -12,6 +12,9 @@ class PNet(pl.LightningModule):
     def __init__(self, input_size=32, output_size=2, training_dataloader=None, validation_dataloader=None,
                  test_dataloader=None, config: Dict = {}, reduce=False):
         super(PNet, self).__init__()
+        
+        if config:
+            self.save_hyperparameters(config)
         
         self.training_dataloader = training_dataloader
         self.validation_dataloader = validation_dataloader
@@ -37,18 +40,24 @@ class PNet(pl.LightningModule):
         if linear:
             self.fc.add_module("output_activation", activation())
         
+        self.learning_rate = 5e-4
+        
         self.reduce = reduce
     
     def training_step(self, batch, batch_idx):
-        x, y = batch.float()
+        x, y = batch
+        x = x.float()
+        y = y.float()
         x = self.fc(x)
         loss = mse_loss(x, y)
         return loss
     
     def validation_step(self, batch, batch_idx):
-        x, y = batch.float()
-        x = self.fc(x)
-        loss = mse_loss(x, y)
+        x, y = batch
+        x = x.float()
+        y = y.float()
+        result = self.fc(x)
+        loss = mse_loss(result, y)
         self.log("val_loss", loss)
         return {"val_loss", loss.item()}
     
@@ -59,7 +68,7 @@ class PNet(pl.LightningModule):
     def configure_optimizers(self):
         optim = Adam(self.parameters(), lr=self.learning_rate)
         if self.reduce:
-            reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=6, cooldown=2,
+            reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=25, cooldown=2,
                                           threshold=1e-4, verbose=True, min_lr=1e-6, threshold_mode='abs')
             gen_scheduler = {"scheduler": reduce_lr, 'reduce_on_plateau': True, 'monitor': 'val_loss'}
             

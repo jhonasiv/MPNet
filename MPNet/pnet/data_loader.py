@@ -1,12 +1,14 @@
 import argparse
 import os
+from abc import ABC
 
 import numpy as np
 import torch
 import webdataset as wds
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 import MPNet.enet.data_loader as ae_dl
+from MPNet.enet.CAE import ContractiveAutoEncoder
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
@@ -67,11 +69,53 @@ class FromTar:
     def load_dataset(self, file_path, batch_size=1, num_workers=0, shuffle=0, ae=None):
         self._ae = ae
         dataset = wds.Dataset(file_path)
-        dataset = wds.Processor(dataset, wds.map, self.decode)
+        dataset = wds.Processor(dataset, wds.map, self.decode).batched(batch_size)
         if shuffle:
             dataset = dataset.shuffle(shuffle)
-        dataset = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
+        dataset = DataLoader(dataset, batch_size=None, num_workers=num_workers)
         return dataset
+
+
+class PNetDataset(Dataset, ABC):
+    def __init__(self, cae, folder, qtt_envs, envs_start_idx=0):
+        super().__init__()
+        self.env_start_idx = envs_start_idx
+        envs = ae_dl.load_perms(qtt_envs, envs_start_idx)
+        sampled_envs = map(ae_dl.create_samples, envs)
+        sampled_envs = map(torch.from_numpy, sampled_envs)
+        self.cae_envs = list(map(cae, sampled_envs))
+        self.path_files = []
+        for _, envs, _ in os.walk(folder):
+            envs = sorted(envs, key=lambda x: int(''.join(filter(str.isdigit, x))))
+            envs = envs[envs_start_idx:qtt_envs]
+            for env_name in envs:
+                env_idx = int(''.join(filter(str.isdigit, env_name)))
+                for _, _, files in os.walk(f"{folder}/{env_name}"):
+                    for filename in files:
+                        path = np.fromfile(f"{folder}/{env_name}/{filename}", dtype=float).reshape((-1, 2))
+                        for n in range(len(path) - 1):
+                            self.path_files.append((env_idx, path, n))
+    
+    def process(self, item):
+        embed_idx, path, path_idx = item
+        embedding = self.cae_envs[embed_idx]
+        inputs = [*embedding, *path[path_idx], *path[-1]]
+        target = [*path[path_idx + 1]]
+        inputs = torch.Tensor(inputs)
+        target = torch.Tensor(target)
+        return inputs, target
+    
+    def __getitem__(self, item):
+        return self.process(self.path_files[item])
+    
+    def __len__(self):
+        return len(self.path_files)
+
+
+def loader(enet, paths_folder, qtt_envs, envs_start_idx, batch_size, *args, **kwargs):
+    ds = PNetDataset(enet, paths_folder, qtt_envs, envs_start_idx)
+    ds = DataLoader(ds, batch_size=batch_size, shuffle=True, *args, **kwargs)
+    return ds
 
 
 if __name__ == '__main__':
@@ -84,4 +128,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    PathToTar.to_tar(args.parent, args.num_envs, args.paths_per_env, args.output_path)
+    c = ContractiveAutoEncoder.load_from_checkpoint('../../models/cae.ckpt')
+    c.freeze()
+    ds = PNetDataset(c, '../../env', 100)
+    # PathToTar.to_tar(args.parent, args.num_envs, args.paths_per_env, args.output_path)
