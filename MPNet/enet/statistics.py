@@ -1,6 +1,5 @@
 import argparse
 import json
-import logging
 import os
 import warnings
 from typing import Dict
@@ -13,6 +12,7 @@ from google.cloud import storage
 from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import EarlyStopping
 from torch import nn
+from torch.optim import Adagrad
 
 from MPNet.enet.CAE import ContractiveAutoEncoder
 from MPNet.enet.data_loader import loader
@@ -42,7 +42,6 @@ class TrainingDataCallback(pl.Callback):
         min_idx = np.where(self.stats['val_loss'] == min(self.stats['val_loss']))
         self.stats['val_loss'] = self.stats['val_loss'][min_idx][0]
         self.stats['epoch'] = self.stats['epoch'][min_idx][0]
-        logging.info(f"Got {self.stats}")
         client = storage.Client(self.project)
         bucket = client.bucket(self.bucket_name)
         blob = bucket.blob(self.log_file)
@@ -54,11 +53,16 @@ class TrainingDataCallback(pl.Callback):
 
 
 def train(args):
-    configs = [{"l1_units": 512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU},
-               {"l1_units": 560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU},
-               {"l1_units": 560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU},
-               {"l1_units": 512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU},
-               {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU},
+    configs = [{"l1_units":  512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU, "lr": 1e-2,
+                "optimizer": Adagrad},
+               {"l1_units":  560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
+                "optimizer": Adagrad},
+               {"l1_units":  560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
+                "optimizer": Adagrad},
+               {"l1_units":  512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
+                "optimizer": Adagrad},
+               {"l1_units":  576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
+                "lr":        1e-2, "optimizer": Adagrad},
                ]
     
     training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0)
@@ -81,7 +85,7 @@ def iteration_loop(config, n, num_itt, training, validation, num_gpus, gcloud_pr
         logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{n}_{itt}.json",
                                        log_stats=["val_loss", "epoch"])
         trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
-                             weights_summary=None)
+                             weights_summary=None, deterministic=True)
         cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True)
         
         trainer.fit(cae)

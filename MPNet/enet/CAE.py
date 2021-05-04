@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 from torch.nn.functional import mse_loss
-from torch.optim import Adagrad, Adam
+from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
@@ -19,7 +19,7 @@ class ContractiveAutoEncoder(pl.LightningModule):
         self.validation_dataloader = val_dataloader
         self.test_dataloader = test_dataloader
         
-        self.learning_rate = 1e-4
+        self.learning_rate = config.get("lr", 1e-4)
         self.reduce = reduce
         
         l1_units = config.get("l1_units", 512)
