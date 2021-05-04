@@ -61,8 +61,8 @@ def train(args):
                 "optimizer": Adagrad},
                {"l1_units":  512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
                 "optimizer": Adagrad},
-               {"l1_units":  576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
-                "lr":        1e-2, "optimizer": Adagrad},
+               {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
+                "lr":       1e-2, "optimizer": Adagrad},
                ]
     
     training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0)
@@ -85,7 +85,7 @@ def iteration_loop(config, n, num_itt, training, validation, num_gpus, gcloud_pr
         logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{n}_{itt}.json",
                                        log_stats=["val_loss", "epoch"])
         trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
-                             weights_summary=None, deterministic=True)
+                             weights_summary=None, deterministic=True, progress_bar_refresh_rate=1)
         cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True)
         
         trainer.fit(cae)
@@ -99,18 +99,13 @@ def parallel_main(args):
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU},
                ]
     
-    training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0)
-    validation = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 7500, 1, 55000)
-    
     torch.set_num_interop_threads(1)
     processes = []
     for n, config in enumerate(configs):
         for itt in range(args.itt):
             p = mp.Process(target=worker,
                            args=(
-                               config, n, itt, training, validation, args.num_gpus, args.log_path,
-                               args.gcloud_project,
-                               args.bucket))
+                               config, n, itt, args.num_gpus, args.log_path, args.gcloud_project, args.bucket))
             p.start()
             processes.append(p)
             while int(len(processes)) == args.workers:
@@ -122,15 +117,18 @@ def parallel_main(args):
         proc.join()
 
 
-def worker(config, idx, itt, training, validation, num_gpus, log_path, gcloud_project, bucket):
+def worker(config, idx, itt, num_gpus, log_path, gcloud_project, bucket):
     print(f"Starting worker for config {idx} -> iteration {itt}")
     
     torch.set_num_threads(1)
+    training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0)
+    validation = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 7500, 1, 55000)
+    
     es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
     logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{idx}_{itt}.json",
                                    log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
-                         progress_bar_refresh_rate=0, weights_summary=None)
+                         progress_bar_refresh_rate=0, weights_summary=None, deterministic=True)
     cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True)
     
     trainer.fit(cae)
