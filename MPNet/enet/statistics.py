@@ -86,7 +86,7 @@ def iteration_loop(config, n, num_itt, training, validation, num_gpus, gcloud_pr
                                        log_stats=["val_loss", "epoch"])
         trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
                              weights_summary=None, deterministic=True, progress_bar_refresh_rate=1)
-        cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True)
+        cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True, seed=itt)
         
         trainer.fit(cae)
 
@@ -129,7 +129,7 @@ def worker(config, idx, itt, num_gpus, log_path, gcloud_project, bucket):
                                    log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
                          progress_bar_refresh_rate=0, weights_summary=None, deterministic=True)
-    cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True)
+    cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True, seed=itt)
     
     trainer.fit(cae)
     print(f"\nWorker done for config {idx} -> iteration {itt}\n")

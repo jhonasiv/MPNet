@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 class ContractiveAutoEncoder(pl.LightningModule):
     def __init__(self, training_dataloader=None, val_dataloader=None, test_dataloader=None, config: Dict = {},
-                 reduce: bool = False):
+                 reduce: bool = False, seed=None):
         super(ContractiveAutoEncoder, self).__init__()
         self.save_hyperparameters(config)
         self.training_dataloader = training_dataloader
@@ -26,6 +26,7 @@ class ContractiveAutoEncoder(pl.LightningModule):
         l2_units = config.get("l2_units", 256)
         l3_units = config.get("l3_units", 128)
         actv = config.get("actv", nn.PReLU)
+        self.seed = seed
         self.optimizer = config.get("optimizer", Adam)
         
         self.lambd = config.get("lambda", 1e-3)
@@ -55,6 +56,11 @@ class ContractiveAutoEncoder(pl.LightningModule):
         dh = h * (1 - h)
         contractive_loss = torch.sum(dh ** 2 * torch.sum(Variable(weights) ** 2, dim=1), dim=1).mul_(self.lambd)
         return mse + contractive_loss
+    
+    def on_fit_start(self) -> None:
+        if self.seed:
+            pl.seed_everything(self.seed)
+        super(ContractiveAutoEncoder, self).on_fit_start()
     
     def forward(self, inputs):
         self.code = self.encoder(inputs)
