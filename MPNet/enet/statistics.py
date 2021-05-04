@@ -9,7 +9,6 @@ import pytorch_lightning as pl
 import torch
 import torch.multiprocessing as mp
 from google.cloud import storage
-from google.oauth2 import service_account
 from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import EarlyStopping
 from torch import nn
@@ -23,12 +22,10 @@ project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
 
 class TrainingDataCallback(pl.Callback):
-    def __init__(self, project: str, bucket_name: str, credentials: service_account.Credentials, log_file: str,
-                 log_stats: Dict):
+    def __init__(self, project: str, bucket_name: str, log_file: str, log_stats: Dict):
         super().__init__()
         self.project = project
         self.bucket_name = bucket_name
-        self.credentials = credentials
         self.log_file = log_file
         check_for_error = [key for key in log_stats if key not in ("epoch", "val_loss")]
         if check_for_error:
