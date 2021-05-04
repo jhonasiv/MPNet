@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import os
 import warnings
 from typing import Dict
@@ -41,7 +42,8 @@ class TrainingDataCallback(pl.Callback):
         min_idx = np.where(self.stats['val_loss'] == min(self.stats['val_loss']))
         self.stats['val_loss'] = self.stats['val_loss'][min_idx][0]
         self.stats['epoch'] = self.stats['epoch'][min_idx][0]
-        client = storage.Client(self.project, credentials=self.credentials)
+        logging.info(f"Got {self.stats}")
+        client = storage.Client(self.project)
         bucket = client.bucket(self.bucket_name)
         blob = bucket.blob(self.log_file)
         blob.upload_from_string(json.dumps(self.stats))
@@ -79,7 +81,7 @@ def iteration_loop(config, n, num_itt, training, validation, num_gpus, gcloud_pr
         logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{n}_{itt}.json",
                                        log_stats=["val_loss", "epoch"])
         trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
-                             progress_bar_refresh_rate=1, weights_summary=None)
+                             weights_summary=None)
         cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True)
         
         trainer.fit(cae)

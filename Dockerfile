@@ -1,10 +1,19 @@
-FROM python:3.8.9
+FROM nvidia/cuda:11.3.0-cudnn8-runtime-ubuntu20.04
+
+# Installs necessary dependencies.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+         wget \
+         curl \
+         python3-dev \
+         python3-pip && \
+     rm -rf /var/lib/apt/lists/*
+
 
 WORKDIR /usr/src
 
-RUN apt install git
+RUN apt update && apt install -y --no-install-recommends git
 
-RUN python3 -m pip install torch torchvision google-cloud-storage numpy pytorch-lightning
+RUN python3.8 -m pip install torch torchvision google-cloud-storage numpy pytorch-lightning
 
 RUN git clone http://github.com/jhonasiv/mpnet.git /usr/src/mpnet && cd /usr/src/mpnet && git checkout gcloud
 
@@ -28,7 +37,7 @@ ENV PATH $PATH:/root/tools/google-cloud-sdk/bin
 # Make sure gsutil will use the default service account
 RUN echo '[GoogleCompute]\nservice_account = default' > /etc/boto.cfg
 
-ENTRYPOINT ["python3", "/usr/src/mpnet/MPNet/enet/statistics.py"]
+ENTRYPOINT ["python3.8", "/usr/src/mpnet/MPNet/enet/statistics.py"]
 CMD ["--num_gpus", "1", "--workers", "0", "--itt", "40", "--gcloud_project","avid-battery-312014", "--bucket", \
  "mpnet-bucket", "--model_id", "0", "--log_path", "data/cae", "--batch_size", \
  "1000"]
