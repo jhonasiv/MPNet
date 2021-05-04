@@ -7,8 +7,8 @@ from google.cloud import storage
 from torch.utils.data import DataLoader, Dataset
 
 
-def load_perms(project, bucket_name, credentials, path, num, start_point=0):
-    client = storage.Client(project, credentials=credentials)
+def load_perms(project, bucket_name, path, num, start_point=0):
+    client = storage.Client(project)
     bucket = client.get_bucket(bucket_name)
     
     with bucket.blob(path).open('r') as f:
@@ -33,9 +33,9 @@ def create_samples(perm_unit, cached_perm={}):
 
 
 class EnvDataset(Dataset, ABC):
-    def __init__(self, size, start_point=0, project="", bucket_name="", credentials="", path=""):
+    def __init__(self, size, start_point=0, project="", bucket_name="", path=""):
         super().__init__()
-        self.perms = load_perms(project, bucket_name, credentials, path, size, start_point)
+        self.perms = load_perms(project, bucket_name, path, size, start_point)
         self.cached_perms = {}
     
     def __len__(self):
@@ -56,9 +56,9 @@ class EnvDataset(Dataset, ABC):
         return torch.from_numpy(sample)
 
 
-def loader(project, bucket_name, credentials, path, num_envs, batch_size, start_point=0, workers=0):
+def loader(project, bucket_name, path, num_envs, batch_size, start_point=0, workers=0):
     batch_size = int(batch_size)
-    dataset = EnvDataset(num_envs, start_point, project=project, bucket_name=bucket_name, credentials=credentials,
+    dataset = EnvDataset(num_envs, start_point, project=project, bucket_name=bucket_name,
                          path=path)
     if batch_size > 1:
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=workers, shuffle=True, pin_memory=True)

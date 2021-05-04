@@ -62,27 +62,25 @@ def train(args):
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU},
                ]
     
-    credentials = service_account.Credentials.from_service_account_info(args.service_account)
-    training = loader(args.gcloud_project, args.bucket, credentials, "obs/perm.csv", 55000, args.batch_size, 0)
-    validation = loader(args.gcloud_project, args.bucket, credentials, "obs/perm.csv", 7500, 1, 55000)
+    training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0)
+    validation = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 7500, 1, 55000)
     
     if args.model_id is None:
         for n, config in enumerate(configs):
             iteration_loop(config, n, args.itt, training, validation, args.num_gpus, args.gcloud_project,
-                           args.bucket, credentials, args.log_path)
+                           args.bucket, args.log_path)
     else:
         iteration_loop(configs[args.model_id], args.model_id, args.itt, training, validation, args.num_gpus,
-                       args.gcloud_project, args.bucket, credentials, args.log_path)
+                       args.gcloud_project, args.bucket, args.log_path)
 
 
-def iteration_loop(config, n, num_itt, training, validation, num_gpus, gcloud_project, bucket, log_path,
-                   credentials):
+def iteration_loop(config, n, num_itt, training, validation, num_gpus, gcloud_project, bucket, log_path):
     for itt in range(num_itt):
         pl.seed_everything(itt)
         
         es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
         logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{n}_{itt}.json",
-                                       log_stats=["val_loss", "epoch"], credentials=credentials)
+                                       log_stats=["val_loss", "epoch"])
         trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
                              progress_bar_refresh_rate=1, weights_summary=None)
         cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True)
@@ -144,7 +142,6 @@ if __name__ == '__main__':
     parser.add_argument('--itt', type=int, default=20)
     parser.add_argument('--gcloud_project', default="", type=str, required=True)
     parser.add_argument('--bucket', default="", type=str, required=True)
-    parser.add_argument('--service_account', default="", type=str, required=True)
     parser.add_argument('--model_id', default=None, type=int)
     parser.add_argument('--log_path', default="data", type=str)
     parser.add_argument('--batch_size', default=100, type=int)

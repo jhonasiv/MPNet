@@ -11,4 +11,6 @@ RUN git clone http://github.com/jhonasiv/mpnet.git /usr/src/mpnet && cd /usr/src
 ENV PYTHONPATH $PYTHONPATH:/usr/src/mpnet
 
 ENTRYPOINT ["python3", "/usr/src/mpnet/MPNet/enet/statistics.py"]
-CMD ["--num_gpus", "1", "--workers", "0", "--itt", "40", "--gcloud_project","avid-battery-312014", "--bucket", "mpnet-bucket", "--model_id", "0", "--log_path", "data/cae", "--batch_size", "1000"]
+CMD ["--num_gpus", "1", "--workers", "0", "--itt", "40", "--gcloud_project","avid-battery-312014", "--bucket", \
+ "mpnet-bucket","--service_account", "mpnet-data-gen", "--model_id", "0", "--log_path", "data/cae", "--batch_size", \
+ "1000"]
