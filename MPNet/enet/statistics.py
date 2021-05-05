@@ -53,16 +53,16 @@ class TrainingDataCallback(pl.Callback):
 
 
 def train(args):
-    configs = [{"l1_units":  512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU, "lr": 1e-2,
-                "optimizer": Adagrad},
-               {"l1_units":  560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
-                "optimizer": Adagrad},
-               {"l1_units":  560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
-                "optimizer": Adagrad},
-               {"l1_units":  512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
-                "optimizer": Adagrad},
+    configs = [{"l1_units": 512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU,
+                "lr":       args.learning_rate, "optimizer": Adagrad},
+               {"l1_units": 560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU,
+                "lr":       args.learning_rate, "optimizer": Adagrad},
+               {"l1_units": 560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU,
+                "lr":       args.learning_rate, "optimizer": Adagrad},
+               {"l1_units": 512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU,
+                "lr":       args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
-                "lr":       1e-2, "optimizer": Adagrad},
+                "lr":       args.learning_rate, "optimizer": Adagrad},
                ]
     
     training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0)
@@ -100,8 +100,8 @@ def parallel_main(args):
                 "optimizer": Adagrad},
                {"l1_units":  512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
                 "optimizer": Adagrad},
-               {"l1_units":  576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
-                "lr":        1e-2, "optimizer": Adagrad},
+               {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
+                "lr":       1e-2, "optimizer": Adagrad},
                ]
     
     torch.set_num_interop_threads(1)
@@ -151,6 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_id', default=None, type=int)
     parser.add_argument('--log_path', default="data", type=str)
     parser.add_argument('--batch_size', default=100, type=int)
+    parser.add_argument('--learning_rate', default=1e-2, type=float)
     
     args = parser.parse_args()
     if args.workers > 0 and args.model_id is None:
