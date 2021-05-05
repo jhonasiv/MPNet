@@ -65,8 +65,9 @@ def train(args):
                 "lr":       args.learning_rate, "optimizer": Adagrad},
                ]
     
-    training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0)
-    validation = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 7500, 1, 55000)
+    training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0,
+                      workers=args.workers)
+    validation = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 7500, 1, 55000, workers=args.workers)
     
     if args.model_id is None:
         for n, config in enumerate(configs):
@@ -154,7 +155,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', default=1e-2, type=float)
     
     args = parser.parse_args()
-    if args.workers > 0 and args.model_id is None:
+    if args.model_id is None:
         parallel_main(args)
     else:
         train(args)
