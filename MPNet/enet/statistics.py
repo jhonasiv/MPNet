@@ -76,8 +76,6 @@ def train(args):
 
 def iteration_loop(config, n, num_itt, num_gpus, gcloud_project, bucket, log_path, batch_size, workers):
     for itt in range(num_itt):
-        itt += 1
-        pl.seed_everything(itt)
         training = loader(gcloud_project, bucket, "obs/perm.csv", 55000, batch_size, 0, workers=workers)
         validation = loader(gcloud_project, bucket, "obs/perm.csv", 7500, 1, 55000, workers=workers)
         
@@ -85,7 +83,7 @@ def iteration_loop(config, n, num_itt, num_gpus, gcloud_project, bucket, log_pat
         logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{n}_{itt}.json",
                                        log_stats=["val_loss", "epoch"])
         trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
-                             weights_summary=None, deterministic=True, progress_bar_refresh_rate=1)
+                             weights_summary=None, progress_bar_refresh_rate=1, max_epochs=75)
         cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True, seed=itt)
         
         trainer.fit(cae)

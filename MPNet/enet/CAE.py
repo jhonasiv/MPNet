@@ -57,13 +57,6 @@ class ContractiveAutoEncoder(pl.LightningModule):
         contractive_loss = torch.sum(dh ** 2 * torch.sum(Variable(weights) ** 2, dim=1), dim=1).mul_(self.lambd)
         return mse + contractive_loss
     
-    def on_fit_start(self) -> None:
-        # To ensure everything is properly seeded, source:
-        # https://github.com/PyTorchLightning/pytorch-lightning/issues/1565
-        if self.seed:
-            pl.seed_everything(self.seed)
-        super(ContractiveAutoEncoder, self).on_fit_start()
-    
     def forward(self, inputs):
         self.code = self.encoder(inputs)
         return self.code
