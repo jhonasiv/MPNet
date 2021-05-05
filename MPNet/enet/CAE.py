@@ -58,6 +58,8 @@ class ContractiveAutoEncoder(pl.LightningModule):
         return mse + contractive_loss
     
     def on_fit_start(self) -> None:
+        # To ensure everything is properly seeded, source:
+        # https://github.com/PyTorchLightning/pytorch-lightning/issues/1565
         if self.seed:
             pl.seed_everything(self.seed)
         super(ContractiveAutoEncoder, self).on_fit_start()
