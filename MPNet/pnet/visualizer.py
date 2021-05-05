@@ -1,13 +1,13 @@
-import torch
-import torch.utils.data as data
+import argparse
 import os
+
 import numpy as np
-from plotly.subplots import make_subplots
-from torch.autograd import Variable
-import torch.nn as nn
 from plotly import graph_objs as go
-import math
-from enet.data_loader import loader
+from plotly.subplots import make_subplots
+
+from MPNet.enet.CAE import ContractiveAutoEncoder
+from MPNet.enet.data_loader import create_samples
+from MPNet.pnet.model import PNet
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
@@ -48,10 +48,34 @@ def get_random_paths(centers_list, env_ids_list, qtt):
     return paths
 
 
-if __name__ == '__main__':
-    centers = np.loadtxt(f"{project_path}/obs/perm.csv", delimiter=',')[:100].reshape((-1, 7, 2))
-    env_ids = np.random.choice(100, 5, replace=True)
-    centers = centers[env_ids]
+def plot_pnet_result(centers, enet, pnet):
+    enet = ContractiveAutoEncoder.load_from_checkpoint(enet)
+    pnet = PNet.load_from_checkpoint(pnet)
     
-    paths_list = get_random_paths(centers, env_ids, 5)
-    plot_sample(centers, paths_list)
+    env_id = np.random.choice(110, 1)
+    
+    env_sample = create_samples(centers[env_id])
+    embedding = enet(env_sample)
+
+
+def main(args):
+    if args.plot == "sample":
+        centers = np.loadtxt(f"{project_path}/obs/perm.csv", delimiter=',')[:100].reshape((-1, 7, 2))
+        env_ids = np.random.choice(100, 5, replace=True)
+        centers = centers[env_ids]
+        
+        paths_list = get_random_paths(centers, env_ids, 5)
+        plot_sample(centers, paths_list)
+    else:
+        centers = np.loadtxt(f"{project_path}/obs/perm.csv", delimiter=',')[0:110].reshape((-1, 7, 2))
+        plot_pnet_result(centers, args.enet, args.pnet)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--pnet', default="", type=str)
+    parser.add_argument('--enet', default="", type=str)
+    parser.add_argument('--plot', default="sample", type=str)
+    args = parser.parse_args()
+    
+    main(args)
