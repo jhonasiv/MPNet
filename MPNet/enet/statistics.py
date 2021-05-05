@@ -92,16 +92,16 @@ def iteration_loop(config, n, num_itt, training, validation, num_gpus, gcloud_pr
 
 
 def parallel_main(args):
-    configs = [{"l1_units":  512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU, "lr": 1e-2,
-                "optimizer": Adagrad},
-               {"l1_units":  560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
-                "optimizer": Adagrad},
-               {"l1_units":  560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
-                "optimizer": Adagrad},
-               {"l1_units":  512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
-                "optimizer": Adagrad},
+    configs = [{"l1_units": 512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU,
+                "lr":       args.learning_rate, "optimizer": Adagrad},
+               {"l1_units": 560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU,
+                "lr":       args.learning_rate, "optimizer": Adagrad},
+               {"l1_units": 560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU,
+                "lr":       args.learning_rate, "optimizer": Adagrad},
+               {"l1_units": 512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU,
+                "lr":       args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
-                "lr":       1e-2, "optimizer": Adagrad},
+                "lr":       args.learning_rate, "optimizer": Adagrad},
                ]
     
     torch.set_num_interop_threads(1)
