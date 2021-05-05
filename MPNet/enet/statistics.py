@@ -65,24 +65,23 @@ def train(args):
                 "lr":       args.learning_rate, "optimizer": Adagrad},
                ]
     
-    training = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 55000, args.batch_size, 0,
-                      workers=args.workers)
-    validation = loader(args.gcloud_project, args.bucket, "obs/perm.csv", 7500, 1, 55000, workers=args.workers)
-    
     if args.model_id is None:
         for n, config in enumerate(configs):
-            iteration_loop(config, n, args.itt, training, validation, args.num_gpus, args.gcloud_project,
-                           args.bucket, args.log_path)
+            iteration_loop(config, n, args.itt, args.num_gpus, args.gcloud_project, args.bucket, args.log_path,
+                           args.batch_size, args.workers)
     else:
-        iteration_loop(configs[args.model_id], args.model_id, args.itt, training, validation, args.num_gpus,
-                       args.gcloud_project, args.bucket, args.log_path)
+        iteration_loop(configs[args.model_id], args.model_id, args.itt, args.num_gpus, args.gcloud_project,
+                       args.bucket, args.log_path, args.batch_size, args.workers)
 
 
-def iteration_loop(config, n, num_itt, training, validation, num_gpus, gcloud_project, bucket, log_path):
+def iteration_loop(config, n, num_itt, num_gpus, gcloud_project, bucket, log_path, batch_size, workers):
     for itt in range(num_itt):
+        itt += 1
         pl.seed_everything(itt)
+        training = loader(gcloud_project, bucket, "obs/perm.csv", 55000, batch_size, 0, workers=workers)
+        validation = loader(gcloud_project, bucket, "obs/perm.csv", 7500, 1, 55000, workers=workers)
         
-        es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
+        es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=15, mode='min', verbose=True)
         logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{n}_{itt}.json",
                                        log_stats=["val_loss", "epoch"])
         trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
