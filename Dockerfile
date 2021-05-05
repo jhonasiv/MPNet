@@ -37,6 +37,6 @@ ENV PATH $PATH:/root/tools/google-cloud-sdk/bin
 # Make sure gsutil will use the default service account
 RUN echo '[GoogleCompute]\nservice_account = default' > /etc/boto.cfg
 
-ENTRYPOINT ["python3.8", "/usr/src/mpnet/MPNet/enet/statistics.py","--num_gpus", "1", "--workers", "0", "--itt", "40",\
+ENTRYPOINT ["python3.8", "/usr/src/mpnet/MPNet/enet/statistics.py","--num_gpus", "1", "--itt", "40",\
  "--gcloud_project","avid-battery-312014", "--bucket", "mpnet-bucket", "--log_path", "data/cae" ]
-CMD ["--model_id", "0","--batch_size", "1000", "--learning_rate", "1e-2"]
+CMD ["--model_id", "0","--batch_size", "1000", "--learning_rate", "1e-2", "--workers", "0"]
