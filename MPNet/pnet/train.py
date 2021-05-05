@@ -25,11 +25,11 @@ def train(args):
     pnet = PNet(32, 2, training_dataloader=training, validation_dataloader=validation, config={'linear': False},
                 reduce=True)
     
-    es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=20, mode='min', verbose=True)
+    es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=40, mode='min', verbose=True)
     checkpointing = ModelCheckpoint(monitor='val_loss', dirpath=f"{project_path}/{args.model_path}/",
                                     filename=args.output_filename, verbose=True, save_top_k=1)
-    trainer = pl.Trainer(gpus=1, benchmark=False, deterministic=True, callbacks=[checkpointing],
-                         max_epochs=args.num_epochs, profiler=Profiler)
+    trainer = pl.Trainer(gpus=1, benchmark=False, deterministic=True, callbacks=[checkpointing, es],
+                         max_epochs=args.num_epochs, profiler='simple')
     
     trainer.fit(pnet)
 

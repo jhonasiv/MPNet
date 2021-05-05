@@ -11,6 +11,7 @@ from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import EarlyStopping
 from torch import multiprocessing as mp
 from torch import nn
+from torch.optim import Adagrad
 
 from MPNet.enet.CAE import ContractiveAutoEncoder
 from data_loader import loader
@@ -45,7 +46,45 @@ class TrainingDataCallback(pl.Callback):
             self.stats[key].append(trainer.logged_metrics[key].item())
 
 
-def main(args):
+def train(args):
+    configs = [{"l1_units":  512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU, "lr": 1e-2,
+                "optimizer": Adagrad},
+               {"l1_units":  560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
+                "optimizer": Adagrad},
+               {"l1_units":  560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
+                "optimizer": Adagrad},
+               {"l1_units":  512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU, "lr": 1e-2,
+                "optimizer": Adagrad},
+               {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
+                "lr":       1e-2, "optimizer": Adagrad},
+               ]
+    
+    training = loader(55000, args.batch_size, 0)
+    validation = loader(7500, 1, 55000)
+    
+    if args.model_id is None:
+        for n, config in enumerate(configs):
+            iteration_loop(config, n, args.itt, training, validation, args.num_gpus, args.log_path)
+    else:
+        iteration_loop(configs[args.model_id], args.model_id, args.itt, training, validation, args.num_gpus,
+                       args.log_path)
+
+
+def iteration_loop(config, n, num_itt, training, validation, num_gpus, log_path):
+    for itt in range(num_itt):
+        pl.seed_everything(itt)
+        
+        es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
+        logging = TrainingDataCallback(f"{log_path}/cae_{n}_{itt}.json",
+                                       log_stats=["val_loss", "epoch"])
+        trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
+                             weights_summary=None, deterministic=True, progress_bar_refresh_rate=1)
+        cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True, seed=itt)
+        
+        trainer.fit(cae)
+
+
+def parallel_main(args):
     configs = [{"l1_units": 512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU},
                {"l1_units": 560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU},
                {"l1_units": 560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU},
@@ -53,15 +92,13 @@ def main(args):
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU},
                ]
     
-    training = loader(55000, args.batch_size, 0)
-    validation = loader(7500, 1, 55000)
-    
     torch.set_num_interop_threads(1)
     processes = []
     for n, config in enumerate(configs):
         for itt in range(args.itt):
-            pl.seed_everything(itt)
-            p = mp.Process(target=worker, args=(config, n, itt, training, validation, args.num_gpus))
+            p = mp.Process(target=worker,
+                           args=(
+                               config, n, itt, args.num_gpus, args.log_path))
             p.start()
             processes.append(p)
             while len(processes) == args.workers:
@@ -69,16 +106,22 @@ def main(args):
                     proc.join(.1)
                     if proc.exitcode == 0:
                         processes.remove(proc)
+    for proc in processes:
+        proc.join()
 
 
-def worker(config, idx, itt, training, validation, num_gpus):
+def worker(config, idx, itt, num_gpus, log_path):
     print(f"Starting worker for config {idx} -> iteration {itt}")
+    
     torch.set_num_threads(1)
-    es = EarlyStopping(monitor='val_loss', min_delta=1e-2, patience=12, mode='min', verbose=True)
-    logging = TrainingDataCallback(f"{project_path}/data/cae_{idx}_{itt}.json", log_stats=["val_loss", "epoch"])
+    training = loader(55000, args.batch_size, 0)
+    validation = loader(7500, 1, 55000)
+    
+    es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
+    logging = TrainingDataCallback(f"{log_path}/cae_{idx}_{itt}.json", log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
-                         progress_bar_refresh_rate=0, weights_summary=None, benchmark=True)
-    cae = ContractiveAutoEncoder(training, validation, config, reduce=True)
+                         progress_bar_refresh_rate=0, weights_summary=None, deterministic=True)
+    cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True, seed=itt)
     
     trainer.fit(cae)
     print(f"\nWorker done for config {idx} -> iteration {itt}\n")
@@ -89,7 +132,12 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpus', type=int, default=0)
     parser.add_argument('--workers', type=int, default=3)
     parser.add_argument('--itt', type=int, default=20)
+    parser.add_argument('--model_id', default=None, type=int)
+    parser.add_argument('--log_path', default="data", type=str)
     parser.add_argument('--batch_size', default=100, type=int)
     
     args = parser.parse_args()
-    main(args)
+    if args.workers > 0 and args.model_id is None:
+        parallel_main(args)
+    else:
+        train(args)

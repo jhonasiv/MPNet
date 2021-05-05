@@ -5,26 +5,30 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 from torch.nn.functional import mse_loss
+from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 
 class ContractiveAutoEncoder(pl.LightningModule):
     def __init__(self, training_dataloader=None, val_dataloader=None, test_dataloader=None, config: Dict = {},
-                 reduce: bool = False):
+                 reduce: bool = False, seed=None):
         super(ContractiveAutoEncoder, self).__init__()
         self.save_hyperparameters(config)
         self.training_dataloader = training_dataloader
         self.validation_dataloader = val_dataloader
         self.test_dataloader = test_dataloader
         
-        self.learning_rate = 1e-4
+        self.learning_rate = config.get("lr", 1e-4)
         self.reduce = reduce
         
         l1_units = config.get("l1_units", 512)
         l2_units = config.get("l2_units", 256)
         l3_units = config.get("l3_units", 128)
         actv = config.get("actv", nn.PReLU)
+        self.seed = seed
+        self.optimizer = config.get("optimizer", Adam)
+        
         self.lambd = config.get("lambda", 1e-3)
         
         self.encoder = nn.Sequential(nn.Linear(2800, l1_units), actv(),
@@ -52,6 +56,13 @@ class ContractiveAutoEncoder(pl.LightningModule):
         dh = h * (1 - h)
         contractive_loss = torch.sum(dh ** 2 * torch.sum(Variable(weights) ** 2, dim=1), dim=1).mul_(self.lambd)
         return mse + contractive_loss
+    
+    def on_fit_start(self) -> None:
+        # To ensure everything is properly seeded, source:
+        # https://github.com/PyTorchLightning/pytorch-lightning/issues/1565
+        if self.seed:
+            pl.seed_everything(self.seed)
+        super(ContractiveAutoEncoder, self).on_fit_start()
     
     def forward(self, inputs):
         inputs = inputs.float()
@@ -85,7 +96,7 @@ class ContractiveAutoEncoder(pl.LightningModule):
         return self.decoder(x)
     
     def configure_optimizers(self):
-        optim = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optim = self.optimizer(self.parameters(), lr=self.learning_rate)
         if self.reduce:
             reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=6, cooldown=2,
                                           threshold=1e-4, verbose=True, min_lr=1e-6, threshold_mode='abs')
