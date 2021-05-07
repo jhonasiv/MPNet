@@ -5,6 +5,7 @@ from abc import ABC
 import numpy as np
 import torch
 import webdataset as wds
+from google.cloud import storage
 from torch.utils.data import DataLoader, Dataset
 
 import MPNet.enet.data_loader as ae_dl
@@ -76,25 +77,43 @@ class FromTar:
         return dataset
 
 
+def list_gcs_directories(client, bucket, prefix):
+    # from https://github.com/GoogleCloudPlatform/google-cloud-python/issues/920
+    iterator = client.list_blobs(bucket, prefix=prefix, delimiter='/')
+    prefixes = set()
+    for page in iterator.pages:
+        prefixes.update(page.prefixes)
+    return prefixes
+
+
 class PNetDataset(Dataset, ABC):
-    def __init__(self, cae, folder, qtt_envs, envs_start_idx=0):
+    def __init__(self, cae, folder, qtt_envs, envs_start_idx=0, project=None, bucket=None, env_path=None):
         super().__init__()
+        client = storage.Client(project)
+        bucket = client.get_bucket(bucket)
         self.env_start_idx = envs_start_idx
-        envs = ae_dl.load_perms(qtt_envs, envs_start_idx)
+        envs = ae_dl.load_perms(project, bucket, env_path, qtt_envs, envs_start_idx)
         sampled_envs = map(ae_dl.create_samples, envs)
         sampled_envs = map(torch.from_numpy, sampled_envs)
         self.cae_envs = list(map(cae, sampled_envs))
         self.path_files = []
-        for _, envs, _ in os.walk(folder):
-            envs = sorted(envs, key=lambda x: int(''.join(filter(str.isdigit, x))))
-            envs = envs[envs_start_idx:qtt_envs]
-            for env_name in envs:
-                env_idx = int(''.join(filter(str.isdigit, env_name)))
-                for _, _, files in os.walk(f"{folder}/{env_name}"):
-                    for filename in files:
-                        path = np.fromfile(f"{folder}/{env_name}/{filename}", dtype=float).reshape((-1, 2))
-                        for n in range(len(path) - 1):
-                            self.path_files.append((env_idx, path, n))
+        
+        envs = list_gcs_directories(client, bucket, folder if "/" in folder else f"{folder}/")
+        
+        envs = sorted(envs, key=lambda x: int(''.join(filter(str.isdigit, x))))
+        envs = envs[envs_start_idx:qtt_envs]
+        blob = bucket.get_blob(f"{folder}/envs.npz")
+        with blob.open('rb') as f:
+            env_paths_file = np.load(f)
+            env_paths_array = np.array(np.split(env_paths_file['array'], env_paths_file['index'], axis=0))
+            env_indexes = env_paths_file['envs']
+        for env_name in envs:
+            env_idx = int(''.join(filter(str.isdigit, env_name)))
+            arrays_indexes = np.where(env_indexes == env_name[:-1])
+            for arr in env_paths_array[arrays_indexes]:
+                path = arr.reshape((-1, 2))
+                for n in range(len(path) - 1):
+                    self.path_files.append((env_idx, path, n))
     
     def process(self, item, extra_info=None):
         embed_idx, path, path_idx = item
@@ -117,12 +136,16 @@ class PNetDataset(Dataset, ABC):
         return len(self.path_files)
 
 
-def loader(enet, paths_folder, qtt_envs, envs_start_idx, batch_size, get_dataset=False, *args, **kwargs):
+def loader(enet, paths_folder, qtt_envs, envs_start_idx, batch_size, project, bucket, path, get_dataset=False, *args,
+           **kwargs):
     if isinstance(enet, str):
-        enet = ContractiveAutoEncoder.load_from_checkpoint(enet)
-        enet.freeze()
+        client = storage.Client(project)
+        bucket = client.get_bucket(bucket)
+        with bucket.blob(enet).open('rb') as f:
+            enet = ContractiveAutoEncoder.load_from_checkpoint(f)
+            enet.freeze()
     
-    ds = PNetDataset(enet, paths_folder, qtt_envs, envs_start_idx)
+    ds = PNetDataset(enet, paths_folder, qtt_envs, envs_start_idx, project, bucket, path)
     if get_dataset:
         return ds
     else:
