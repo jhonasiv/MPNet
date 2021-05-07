@@ -38,10 +38,10 @@ class PathToTar:
             for file in path_files:
                 path = np.fromfile(f"{project_path}/{folder}/{env_name}/{file}", dtype=float).reshape((-1, 2))
                 for n, point in enumerate(path[:-1]):
-                    sample = {"__key__":        f"data_{key_id}",
-                              "env.ten":        env.tobytes(),
+                    sample = {"__key__"       : f"data_{key_id}",
+                              "env.ten"       : env.tobytes(),
                               "trajectory.ten": np.array([*point, *path[-1]]).tobytes(),
-                              "target.ten":     np.array([*path[n + 1]]).tobytes()}
+                              "target.ten"    : np.array([*path[n + 1]]).tobytes()}
                     
                     sink.write(sample)
                     key_id += 1
@@ -96,25 +96,37 @@ class PNetDataset(Dataset, ABC):
                         for n in range(len(path) - 1):
                             self.path_files.append((env_idx, path, n))
     
-    def process(self, item):
+    def process(self, item, extra_info=None):
         embed_idx, path, path_idx = item
         embedding = self.cae_envs[embed_idx]
-        inputs = [*embedding, *path[path_idx], *path[-1]]
-        target = [*path[path_idx + 1]]
-        inputs = torch.Tensor(inputs)
-        target = torch.Tensor(target)
+        inputs = torch.as_tensor([*embedding, *path[path_idx], *path[-1]]).float()
+        target = torch.as_tensor([*path[path_idx + 1]]).float()
+        # inputs = torch.as_tensor(inputs).float()
+        # target = torch.as_tensor(target).float()
+        if extra_info:
+            return inputs, target, path, embed_idx
         return inputs, target
     
     def __getitem__(self, item):
-        return self.process(self.path_files[item])
+        if isinstance(item, tuple):
+            return self.process(self.path_files[item[0]], extra_info=item[1])
+        else:
+            return self.process(self.path_files[item])
     
     def __len__(self):
         return len(self.path_files)
 
 
-def loader(enet, paths_folder, qtt_envs, envs_start_idx, batch_size, *args, **kwargs):
+def loader(enet, paths_folder, qtt_envs, envs_start_idx, batch_size, get_dataset=False, *args, **kwargs):
+    if isinstance(enet, str):
+        enet = ContractiveAutoEncoder.load_from_checkpoint(enet)
+        enet.freeze()
+    
     ds = PNetDataset(enet, paths_folder, qtt_envs, envs_start_idx)
-    ds = DataLoader(ds, batch_size=batch_size, shuffle=True, *args, **kwargs)
+    if get_dataset:
+        return ds
+    else:
+        ds = DataLoader(ds, batch_size=batch_size, *args, **kwargs)
     return ds
 
 

@@ -4,26 +4,32 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 from torch.nn.functional import mse_loss
-from torch.optim import Adam, AdamW
+from torch.optim import Adagrad, Adam, AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
+from MPNet.pnet.data_loader import loader
+
 
 class PNet(pl.LightningModule):
-    def __init__(self, input_size=32, output_size=2, training_dataloader=None, validation_dataloader=None,
-                 test_dataloader=None, config: Dict = {}, reduce=False):
+    def __init__(self, input_size=32, output_size=2, training_config: Dict = {}, validation_config: Dict = {},
+                 test_config: Dict = {}, config: Dict = {}, reduce=False):
         super(PNet, self).__init__()
         
         if config:
-            self.save_hyperparameters(config)
+            self.save_hyperparameters('config', 'training_config')
         
-        self.training_dataloader = training_dataloader
-        self.validation_dataloader = validation_dataloader
-        self.test_dataloader = test_dataloader
+        self.training_config = training_config
+        self.validation_config = validation_config
+        self.test_config = test_config
+        
+        self.training_dataloader = None
+        self.validation_dataloader = None
+        self.test_dataloader = None
         
         drop_rate = config.get('dropout_rate', 0.5)
         activation = config.get('activation', nn.PReLU)
-        self.optimizer = config.get('optimizer', Adam)
+        self.optimizer = config.get('optimizer', Adagrad)
         
         dropout = nn.AlphaDropout if activation == nn.SELU else nn.Dropout
         
@@ -41,7 +47,7 @@ class PNet(pl.LightningModule):
                 nn.Linear(64, 32), activation(),
                 nn.Linear(32, output_size))
         
-        self.learning_rate = config.get('lr', 5e-4)
+        self.learning_rate = config.get('lr', 1e-2)
         
         if activation == nn.SELU:
             self.init_weights()
@@ -56,20 +62,16 @@ class PNet(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         x, y = batch
-        x = x.float()
-        y = y.float()
         x = self.fc(x)
         loss = mse_loss(x, y)
         return loss
     
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        x = x.float()
-        y = y.float()
         result = self.fc(x)
         loss = mse_loss(result, y)
         self.log("val_loss", loss)
-        return {"val_loss", loss.detach()}
+        return {"val_loss", loss}
     
     def forward(self, x):
         out = self.fc(x)
@@ -78,7 +80,7 @@ class PNet(pl.LightningModule):
     def configure_optimizers(self):
         optim = self.optimizer(self.parameters(), lr=self.learning_rate)
         if self.reduce:
-            reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=10, cooldown=2,
+            reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=5, cooldown=2,
                                           threshold=1e-2, verbose=True, min_lr=1e-6, threshold_mode='abs')
             gen_scheduler = {"scheduler": reduce_lr, 'reduce_on_plateau': True, 'monitor': 'val_loss'}
             
@@ -87,10 +89,18 @@ class PNet(pl.LightningModule):
             return [optim]
     
     def test_step(self, batch, batch_idx):
-        x, y = batch.float()
+        x, y = batch
         x = self.fc(x)
         loss = mse_loss(x, y)
         return {"test_loss": loss}
+    
+    def prepare_data(self) -> None:
+        if self.training_config:
+            self.training_dataloader = loader(**self.training_config)
+        if self.validation_config:
+            self.validation_dataloader = loader(**self.validation_config)
+        if self.test_config:
+            self.test_dataloader = loader(**self.test_config)
     
     def train_dataloader(self) -> Any:
         return self.training_dataloader

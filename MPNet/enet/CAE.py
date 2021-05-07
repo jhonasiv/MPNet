@@ -14,6 +14,7 @@ class ContractiveAutoEncoder(pl.LightningModule):
     def __init__(self, training_dataloader=None, val_dataloader=None, test_dataloader=None, config: Dict = {},
                  reduce: bool = False, seed=None):
         super(ContractiveAutoEncoder, self).__init__()
+        
         self.save_hyperparameters(config)
         self.training_dataloader = training_dataloader
         self.validation_dataloader = val_dataloader

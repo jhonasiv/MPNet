@@ -16,11 +16,8 @@ project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
 def train(args):
     configs = [{"dropout_rate": 0.5, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": 1e-2},
-               {"dropout_rate": 0.5, "activation": nn.PReLU, 'optimizer': AdamW, "lr": 5e-4},
                {"dropout_rate": 0.4, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": 1e-2},
-               {"dropout_rate": 0.4, "activation": nn.PReLU, 'optimizer': AdamW, "lr": 5e-4},
                {"dropout_rate": 0.3, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": 1e-2},
-               {"dropout_rate": 0.3, "activation": nn.PReLU, 'optimizer': AdamW, "lr": 5e-4}, ]
     
     prelu_cae = ContractiveAutoEncoder.load_from_checkpoint(f"{project_path}/models/cae.ckpt")
     suggested_cae = ContractiveAutoEncoder.load_from_checkpoint(f"{project_path}/models/cae_prelu_2.pt")
