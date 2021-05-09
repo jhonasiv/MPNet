@@ -31,6 +31,7 @@ def train(args):
                {"dropout_rate": 0.4, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr},
                {"dropout_rate": 0.3, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr}, ]
     
+    config = configs[args.model_id]
     for enet in args.enet_models:
         training_config = {"enet"      : enet, "paths_folder": "env", "qtt_envs": 100, "envs_start_idx": 0,
                            "batch_size": args.batch_size, "shuffle": True, "project": args.project,
@@ -44,15 +45,17 @@ def train(args):
         logging = TrainingDataCallback(args.project, args.bucket,
                                        f"{args.log_path}/pnet_{args.model_id}_{enet_suffix}.json",
                                        log_stats=["val_loss", "epoch"])
+        checkpointing = ModelCheckpoint(monitor='val_loss', dirpath=f"{project_path}/{args.model_output_path}",
+                                        filename=args.output_filename, verbose=True, save_top_k=1)
         
-        trainer = pl.Trainer(callbacks=[es, logging], max_epochs=args.num_epochs, **device)
-        pnet = PNet(32, 2, config=configs[args.model_id], training_config=training_config,
-                    validation_config=validation_config, reduce=True)
+        trainer = pl.Trainer(callbacks=[es, logging, checkpointing], max_epochs=args.num_epochs, **device)
+        pnet = PNet(32, 2, config=config, training_config=training_config, validation_config=validation_config,
+                    reduce=True)
         
         trainer.fit(pnet)
         blob = bucket.blob(f"{args.model_output_path}_{args.model_id}_{enet_suffix}.pt")
         state_dict = pnet.state_dict()
-        state_dict[config] = config[args.model_id]
+        state_dict['config'] = config
         blob.upload_from_string(json.dumps(pnet.state_dict()))
 
 
@@ -73,5 +76,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     train(args)
-
-
