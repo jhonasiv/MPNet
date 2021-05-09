@@ -27,9 +27,9 @@ def train(args):
     
     device = {"tpu_cores": args.num_tpus} if args.num_tpus > 0 else {"gpus": args.num_gpus}
     
-    configs = [{"dropout_rate": 0.5, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": 1e-2},
-               {"dropout_rate": 0.4, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": 1e-2},
-               {"dropout_rate": 0.3, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": 1e-2}, ]
+    configs = [{"dropout_rate": 0.5, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr},
+               {"dropout_rate": 0.4, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr},
+               {"dropout_rate": 0.3, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr}, ]
     
     for enet in args.enet_models:
         training_config = {"enet"      : enet, "paths_folder": "env", "qtt_envs": 100, "envs_start_idx": 0,
@@ -59,6 +59,7 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch-size', default=250, type=int)
+    parser.add_argument("--lr", default=1e-4, type=float)
     parser.add_argument('--log_path', default=".", type=str)
     parser.add_argument('--num_gpus', default=0, type=int)
     parser.add_argument("--num_tpus", default=0, type=int)
