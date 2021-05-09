@@ -40,27 +40,25 @@ def train(args):
                              "batch_size": args.batch_size, "shuffle": False, "project": args.project,
                              "bucket"    : args.bucket, "path": "obs/perm.csv"}
         enet_suffix = os.path.basename(enet).split('.')[0]
-        for itt in range(args.itt):
-            es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
-            logging = TrainingDataCallback(args.project, args.bucket, f"{args.log_path}/pnet_{args.model_id}"
-                                                                      f"_{enet_suffix}.json",
-                                           log_stats=["val_loss", "epoch"])
-            
-            trainer = pl.Trainer(callbacks=[es, logging], max_epochs=args.num_epochs, **device)
-            pnet = PNet(32, 2, config=configs[args.model_id], training_config=training_config,
-                        validation_config=validation_config, reduce=True)
-            
-            trainer.fit(pnet)
-            blob = bucket.blob(f"{args.model_output_path}.pt")
-            state_dict = pnet.state_dict()
-            state_dict[config] = config[args.model_id]
-            blob.upload_from_string(json.dumps(pnet.state_dict()))
+        es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
+        logging = TrainingDataCallback(args.project, args.bucket,
+                                       f"{args.log_path}/pnet_{args.model_id}_{enet_suffix}.json",
+                                       log_stats=["val_loss", "epoch"])
+        
+        trainer = pl.Trainer(callbacks=[es, logging], max_epochs=args.num_epochs, **device)
+        pnet = PNet(32, 2, config=configs[args.model_id], training_config=training_config,
+                    validation_config=validation_config, reduce=True)
+        
+        trainer.fit(pnet)
+        blob = bucket.blob(f"{args.model_output_path}_{args.model_id}_{enet_suffix}.pt")
+        state_dict = pnet.state_dict()
+        state_dict[config] = config[args.model_id]
+        blob.upload_from_string(json.dumps(pnet.state_dict()))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch-size', default=250, type=int)
-    parser.add_argument('--itt', default=20, type=int)
     parser.add_argument('--log_path', default=".", type=str)
     parser.add_argument('--num_gpus', default=0, type=int)
     parser.add_argument("--num_tpus", default=0, type=int)
