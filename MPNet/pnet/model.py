@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.nn.functional import mse_loss
 from torch.optim import Adagrad, Adam, AdamW
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from MPNet.pnet.data_loader import loader
@@ -80,11 +80,12 @@ class PNet(pl.LightningModule):
     def configure_optimizers(self):
         optim = self.optimizer(self.parameters(), lr=self.learning_rate)
         if self.reduce:
-            reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=5, cooldown=2,
-                                          threshold=1e-2, verbose=True, min_lr=1e-6, threshold_mode='abs')
-            gen_scheduler = {"scheduler": reduce_lr, 'reduce_on_plateau': True, 'monitor': 'val_loss'}
+            # reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=5, cooldown=2,
+            #                               threshold=1e-2, verbose=True, min_lr=1e-6, threshold_mode='abs')
+            # gen_scheduler = {"scheduler": reduce_lr, 'reduce_on_plateau': True, 'monitor': 'val_loss'}
+            annealing = CosineAnnealingLR(optim, 3000)
             
-            return [optim], [gen_scheduler]
+            return {"optimizer": optim, "lr_scheduler": {"scheduler": annealing, "monitor": 'val_loss'}}
         else:
             return [optim]
     
