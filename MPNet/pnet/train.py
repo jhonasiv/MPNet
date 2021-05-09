@@ -31,11 +31,10 @@ def train(args):
                 config={'lr': args.learning_rate, 'optimizer': Adagrad, 'actv': nn.SELU},
                 reduce=True)
     
-    es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=20, mode='min', verbose=True)
+    # es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=20, mode='min', verbose=True)
     checkpointing = ModelCheckpoint(monitor='val_loss', dirpath=f"{project_path}/{args.model_path}/",
                                     filename=args.output_filename, verbose=True, save_top_k=3)
-    trainer = pl.Trainer(gpus=1, benchmark=True, callbacks=[checkpointing, es], stochastic_weight_avg=True,
-                         max_epochs=args.num_epochs)
+    trainer = pl.Trainer(gpus=1, callbacks=[checkpointing, es], max_epochs=args.num_epochs)
     
     trainer.fit(pnet)
 

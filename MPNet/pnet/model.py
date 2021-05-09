@@ -82,10 +82,10 @@ class PNet(pl.LightningModule):
         if self.reduce:
             # reduce_lr = ReduceLROnPlateau(optim, mode='min', factor=0.2, patience=5, cooldown=2,
             #                               threshold=1e-2, verbose=True, min_lr=1e-6, threshold_mode='abs')
-            reduce_lr = CosineAnnealingLR(optim, 3000)
-            gen_scheduler = {"scheduler": reduce_lr, 'reduce_on_plateau': True, 'monitor': 'val_loss'}
+            annealing = CosineAnnealingLR(optim, 3000)
+            # gen_scheduler = {"scheduler": annealing, 'reduce_on_plateau': False, 'monitor': 'val_loss'}
             
-            return [optim], [gen_scheduler]
+            return {'optimizer': optim, 'lr_scheduler': {'scheduler': annealing, 'monitor': 'val_loss'}}
         else:
             return [optim]
     
