@@ -67,6 +67,7 @@ if __name__ == "__main__":
     parser.add_argument('--log_path', default=".", type=str)
     parser.add_argument('--num_gpus', default=0, type=int)
     parser.add_argument("--num_tpus", default=0, type=int)
+    parser.add_argument("--tpu", default="", type=str)
     parser.add_argument("--project", default="", type=str, help="Google cloud project ID")
     parser.add_argument("--bucket", default="", type=str, help="Google cloud storage bucket")
     parser.add_argument("--enet_models", default=[], nargs="+", required=True)
