@@ -58,6 +58,7 @@ def train(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--job-dir", default="", type=str)
     parser.add_argument('--batch-size', default=250, type=int)
     parser.add_argument("--lr", default=1e-4, type=float)
     parser.add_argument('--log_path', default=".", type=str)
@@ -72,3 +73,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     train(args)
+
+
