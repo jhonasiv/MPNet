@@ -3,7 +3,7 @@ import os
 from abc import ABC
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torch import nn
 from torch.optim import Adagrad, AdamW
 
@@ -35,18 +35,18 @@ def train(args):
     for enet in args.enet_models:
         training_config = {"enet"      : enet, "paths_folder": "env", "qtt_envs": 100, "envs_start_idx": 0,
                            "batch_size": args.batch_size, "shuffle": True, "project": args.project,
-                           "bucket"    : args.bucket, "path": "obs/perm.csv"}
+                           "bucket"    : args.bucket, "path": "obs/perm.csv", "num_workers": args.workers}
         
         validation_config = {"enet"      : enet, "paths_folder": "valEnv", "qtt_envs": 110, "envs_start_idx": 0,
                              "batch_size": args.batch_size, "shuffle": False, "project": args.project,
-                             "bucket"    : args.bucket, "path": "obs/perm.csv"}
+                             "bucket"    : args.bucket, "path": "obs/perm.csv", "num_workers": args.workers}
         enet_suffix = os.path.basename(enet).split('.')[0]
         es = EarlyStopping(monitor='val_loss', min_delta=1e-3, patience=20, mode='min', verbose=True)
         logging = TrainingDataCallback(args.project, args.bucket,
                                        f"{args.log_path}/pnet_{args.model_id}_{enet_suffix}.json",
                                        log_stats=["val_loss", "epoch"])
         checkpointing = ModelCheckpoint(monitor='val_loss', dirpath=f"{project_path}/{args.model_output_path}",
-                                        filename=args.output_filename, verbose=True, save_top_k=1)
+                                        filename=f"pnet_{args.model_id}_{enet_suffix}", verbose=True, save_top_k=1)
         
         trainer = pl.Trainer(callbacks=[es, logging, checkpointing], max_epochs=args.num_epochs, **device)
         pnet = PNet(32, 2, config=config, training_config=training_config, validation_config=validation_config,
@@ -74,6 +74,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_output_path", default="", type=str, help="Output path for model without extension")
     parser.add_argument("--model_id", default=0, type=int, required=True)
     parser.add_argument("--num_epochs", default=500, type=int)
+    parser.add_argument("--workers", default=0, type=int)
     args = parser.parse_args()
     
     train(args)
