@@ -48,8 +48,9 @@ def train(args):
         checkpointing = ModelCheckpoint(monitor='val_loss', dirpath=f"{project_path}/{args.model_output_path}",
                                         filename=f"pnet_{args.model_id}_{enet_suffix}", verbose=True, save_top_k=1)
         
-        trainer = pl.Trainer(callbacks=[es, logging, checkpointing], max_epochs=args.num_epochs,
-                             resume_from_checkpoint=args.resume, **device)
+        if args.resume:
+            trainer = pl.Trainer(callbacks=[es, logging, checkpointing], max_epochs=args.num_epochs,
+                                 resume_from_checkpoint=f"{args.log_path}/pnet_{args.model_id}_{enet_suffix}.json", **device)
         pnet = PNet(32, 2, config=config, training_config=training_config, validation_config=validation_config,
                     reduce=True)
         
