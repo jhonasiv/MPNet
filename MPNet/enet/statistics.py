@@ -131,7 +131,7 @@ def worker(config, idx, itt, num_gpus, log_path, gcloud_project, bucket):
     logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{idx}_{itt}.json",
                                    log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
-                         progress_bar_refresh_rate=0, weights_summary=None, deterministic=True)
+                         progress_bar_refresh_rate=0, weights_summary=None, deterministic=True, resume=args.resume)
     cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True, seed=itt)
     
     trainer.fit(cae)
@@ -150,6 +150,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_path', default="data", type=str)
     parser.add_argument('--batch_size', default=100, type=int)
     parser.add_argument('--learning_rate', default=1e-2, type=float)
+    parser.add_argument("--resume", nargs='?', type=bool, const=True)
     
     args = parser.parse_args()
     if args.model_id is None:
