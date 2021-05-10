@@ -34,7 +34,8 @@ def train(args):
     # es = EarlyStopping(monitor='val_loss', min_delta=1e-4, patience=20, mode='min', verbose=True)
     checkpointing = ModelCheckpoint(monitor='val_loss', dirpath=f"{project_path}/{args.model_path}/",
                                     filename=args.output_filename, verbose=True, save_top_k=3)
-    trainer = pl.Trainer(gpus=1, callbacks=[checkpointing, es], max_epochs=args.num_epochs)
+    trainer = pl.Trainer(gpus=1, callbacks=[checkpointing, es], max_epochs=args.num_epochs,
+                         resume_from_checkpoint=args.resume)
     
     trainer.fit(pnet)
 
@@ -48,6 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=500)
     parser.add_argument('--batch_size', type=int, default=250)
     parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument("--resume", nargs="?", type=bool, const=True)
     args = parser.parse_args()
     
     train(args)
