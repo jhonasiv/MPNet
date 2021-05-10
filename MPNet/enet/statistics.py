@@ -54,15 +54,15 @@ class TrainingDataCallback(pl.Callback):
 
 def train(args):
     configs = [{"l1_units": 512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                ]
     
     if args.model_id is None:
@@ -91,15 +91,15 @@ def iteration_loop(config, n, num_itt, num_gpus, gcloud_project, bucket, log_pat
 
 def parallel_main(args):
     configs = [{"l1_units": 512, "l2_units": 256, "l3_units": 128, "lambda": 1e-3, "actv": nn.PReLU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 560, " ""l2_units": 304, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 560, " ""l2_units": 328, "l3_units": 208, "lambda": 1e-5, "actv": nn.SELU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 512, " ""l2_units": 256, "l3_units": 160, "lambda": 1e-5, "actv": nn.SELU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                {"l1_units": 576, " ""l2_units": 328, "l3_units": 176, "lambda": 1e-5, "actv": nn.PReLU,
-                "lr":       args.learning_rate, "optimizer": Adagrad},
+                "lr"      : args.learning_rate, "optimizer": Adagrad},
                ]
     
     torch.set_num_interop_threads(1)
@@ -108,7 +108,7 @@ def parallel_main(args):
         for itt in range(args.itt):
             p = mp.Process(target=worker,
                            args=(
-                               config, n, itt, args.num_gpus, args.log_path, args.gcloud_project, args.bucket))
+                                   config, n, itt, args.num_gpus, args.log_path, args.gcloud_project, args.bucket))
             p.start()
             processes.append(p)
             while int(len(processes)) == args.workers:
@@ -131,7 +131,8 @@ def worker(config, idx, itt, num_gpus, log_path, gcloud_project, bucket):
     logging = TrainingDataCallback(gcloud_project, bucket, f"{log_path}/cae_{idx}_{itt}.json",
                                    log_stats=["val_loss", "epoch"])
     trainer = pl.Trainer(gpus=num_gpus, stochastic_weight_avg=True, callbacks=[es, logging],
-                         progress_bar_refresh_rate=0, weights_summary=None, deterministic=True, resume=args.resume)
+                         progress_bar_refresh_rate=0, weights_summary=None, deterministic=True,
+                         resume_from_checkpoint=args.resume)
     cae = ContractiveAutoEncoder(training, validation, config=config, reduce=True, seed=itt)
     
     trainer.fit(cae)
