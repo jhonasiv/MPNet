@@ -29,7 +29,9 @@ def train(args):
     
     configs = [{"dropout_rate": 0.5, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr},
                {"dropout_rate": 0.4, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr},
-               {"dropout_rate": 0.3, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr}, ]
+               {"dropout_rate": 0.3, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr},
+               {"dropout_rate": 0.15, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr},
+               {"dropout_rate": 0, "activation": nn.PReLU, 'optimizer': Adagrad, "lr": args.lr}]
     
     config = configs[args.model_id]
     for enet in args.enet_models:
@@ -53,6 +55,8 @@ def train(args):
                                  resume_from_checkpoint=f"{project_path}/{args.model_output_path}/pnet_"
                                                         f"{args.model_id}_{enet_suffix}.ckpt",
                                  **device)
+        else:
+            trainer = pl.Trainer(callbacks=[es, logging, checkpointing], max_epochs=args.num_epochs, **device)
         pnet = PNet(32, 2, config=config, training_config=training_config, validation_config=validation_config,
                     reduce=True)
         
