@@ -26,7 +26,6 @@ def plot(inp, output, title):
     fig.update_layout(title=title)
     fig.show()
 
-
 def train(args):
     if not os.path.exists(f"{project_path}/{args.model_path}"):
         os.makedirs(f"{project_path}/{args.model_path}")
