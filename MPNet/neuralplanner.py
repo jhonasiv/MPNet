@@ -1,15 +1,16 @@
 import argparse
 import os
+from copy import deepcopy
 
 import numpy as np
-from copy import deepcopy
 import torch
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 
-from shapely.geometry import MultiPolygon, Point, LineString, Polygon
 from MPNet.enet import data_loader as ae_dl
 from MPNet.enet.CAE import ContractiveAutoEncoder
 from MPNet.pnet.data_loader import loader
 from MPNet.pnet.model import PNet
+
 # from MPNet.visualizer.visualizer import plot_path
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
@@ -84,6 +85,7 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=12):
     path = remove_invalid_beacon_states(previous_path, env)
     feasible = feasibility_check(path, env)
     tries = 0
+    target_reached = False
     while not feasible and tries < num_tries:
         tries += 1
         replanned_path = [path[0]]
@@ -93,8 +95,10 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=12):
             if steerable:
                 replanned_path.append(path[i + 1])
             else:
-                _, rpath_1, rpath_2 = bidirectional_planning(pnet, start, goal, env)
+                target_reached, rpath_1, rpath_2 = bidirectional_planning(pnet, start, goal, env)
                 replanned_path = list(np.concatenate([replanned_path, rpath_1, rpath_2[::-1]]))
+                if not target_reached:
+                    break
         
         replanned_path = list(np.unique(replanned_path, axis=0))
         lvc_replanned_path = lvc(replanned_path, env)
@@ -103,6 +107,8 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=12):
         if feasible:
             path = lvc_replanned_path
             break
+        elif not target_reached:
+            return False, lvc_replanned_path
         else:
             path = np.array(replanned_path)
         path = remove_invalid_beacon_states(path, env)

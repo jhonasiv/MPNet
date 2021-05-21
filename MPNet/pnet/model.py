@@ -8,7 +8,10 @@ from torch.optim import Adagrad, Adam, AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
+import os
 from MPNet.pnet.data_loader import loader
+
+project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 
 
 class PNet(pl.LightningModule):
@@ -22,7 +25,10 @@ class PNet(pl.LightningModule):
         self.training_config = training_config
         self.validation_config = validation_config
         self.test_config = test_config
-        
+        if "/home" in self.training_config['enet']:
+            self.training_config['enet'] = os.path.join(project_path, self.training_config['enet'].split('mpnet/')[-1])
+            self.validation_config['enet'] = os.path.join(project_path,
+                                                          self.training_config['enet'].split('mpnet/')[-1])
         self.training_dataloader = None
         self.validation_dataloader = None
         self.test_dataloader = None
