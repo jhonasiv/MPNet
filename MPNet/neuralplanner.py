@@ -71,10 +71,10 @@ def remove_invalid_beacon_states(path, env):
                 new_path[-1] = np.mean([new_path[-1], new_path[-2]], axis=0)
             except IndexError:
                 pass
-    for n, state in enumerate(new_path[::-1]):
-        if is_in_collision(state, env):
+    for n in range(len(new_path) - 1, 0, -1):
+        if is_in_collision(new_path[n], env):
             try:
-                new_path[n - 1] = np.mean([new_path[n - 1], new_path[n - 2]], axis=0)
+                new_path[n + 1] = np.mean([new_path[n + 1], new_path[n + 2]], axis=0)
             except IndexError:
                 pass
     new_path = np.array(new_path)
@@ -98,10 +98,14 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=12):
                 target_reached, rpath_1, rpath_2 = bidirectional_planning(pnet, start, goal, env)
                 replanned_path = list(np.concatenate([replanned_path, rpath_1, rpath_2[::-1]]))
                 if not target_reached:
-                    break
+                    if i < len(path) - 1:
+                        replanned_path = np.concatenate([replanned_path, path[i + 1:]])
+                    return False, replanned_path
         
-        replanned_path = list(np.unique(replanned_path, axis=0))
-        lvc_replanned_path = lvc(replanned_path, env)
+        replanned_path = np.array(replanned_path)
+        filtered_path, indexes = np.unique(replanned_path, axis=0, return_index=True)
+        filtered_path = filtered_path[np.argsort(indexes)]
+        lvc_replanned_path = lvc(filtered_path, env)
         lvc_replanned_path = np.array(lvc_replanned_path)
         feasible = feasibility_check(lvc_replanned_path, env)
         if feasible:
@@ -110,7 +114,7 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=12):
         elif not target_reached:
             return False, lvc_replanned_path
         else:
-            path = np.array(replanned_path)
+            path = np.array(filtered_path)
         path = remove_invalid_beacon_states(path, env)
     return feasible, path
 
