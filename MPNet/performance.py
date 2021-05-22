@@ -99,7 +99,7 @@ def run(args):
             paths = pd.DataFrame([], columns=['seen', 'model', 'id', 'env_id', 'result', 'initial', 'goal', 'path'])
             paths = paths.set_index(['model', 'id'])
         for env_id, mapping in overall_data.items():
-            start_idx = len(paths.query(f'env_id == {env_id} and model == {name}'))
+            start_idx = len(paths.query(f'env_id == {env_id} and model == "{name}"'))
             for data_input, selected_id in zip(mapping["input"][start_idx:], mapping["selected_ids"][start_idx:]):
                 if selected_id not in selected_results:
                     selected_results[selected_id] = {"Success"       : [], "Failure": [], "Replan Success": [],
