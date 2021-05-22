@@ -81,7 +81,7 @@ def remove_invalid_beacon_states(path, env):
     return new_path
 
 
-def replan_path(previous_path, env, data_input, pnet, num_tries=10):
+def replan_path(previous_path, env, data_input, pnet, num_tries=12):
     path = remove_invalid_beacon_states(previous_path, env)
     feasible = feasibility_check(path, env)
     tries = 0
@@ -95,7 +95,7 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=10):
             if steerable:
                 replanned_path.append(path[i + 1])
             else:
-                target_reached, rpath_1, rpath_2 = bidirectional_planning(pnet, start, goal, env, 50)
+                target_reached, rpath_1, rpath_2 = bidirectional_planning(pnet, start, goal, env)
                 replanned_path = list(np.concatenate([replanned_path, rpath_1, rpath_2[::-1]]))
                 if not target_reached:
                     if i < len(path) - 1:
@@ -127,13 +127,13 @@ def bidirectional_replan_setup(env, start_point, goal_point, model_input):
     return steerable, start, goal
 
 
-def bidirectional_planning(pnet, origin, goal, env, steps=80):
+def bidirectional_planning(pnet, origin, goal, env):
     result_1 = deepcopy(origin[-4:-2])
     result_2 = deepcopy(goal[-4:-2])
     path_1, path_2 = [result_1.numpy()], [result_2.numpy()]
     tree, target_reached = False, False
     step = 0
-    while not target_reached and step < steps:
+    while not target_reached and step < 100:
         step += 1
         if not tree:
             result_1 = pnet(origin)
@@ -152,17 +152,17 @@ def bidirectional_planning(pnet, origin, goal, env, steps=80):
     return target_reached, path_1, path_2
 
 
-def bidirectional_planner(pnet, env, model_input, steps=80):
+def bidirectional_planner(pnet, env, model_input):
     origin = deepcopy(model_input)
     goal = deepcopy(origin)
     goal[-4:] = goal[[-2, -1, -4, -3]]
-    target_reached, path_1, path_2 = bidirectional_planning(pnet, origin, goal, env, steps)
+    target_reached, path_1, path_2 = bidirectional_planning(pnet, origin, goal, env)
     return target_reached, path_1, path_2
 
 
-def plan(pnet, env, data_input, steps=80):
+def plan(pnet, env, data_input):
     env = env_npy_to_polygon(env)
-    target_reached, path_1, path_2 = bidirectional_planner(pnet, env, data_input, steps)
+    target_reached, path_1, path_2 = bidirectional_planner(pnet, env, data_input)
     
     if target_reached:
         path = np.concatenate([path_1, path_2[::-1]])

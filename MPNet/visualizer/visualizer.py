@@ -111,16 +111,17 @@ class Visualizer:
         for stage, status in feasibility.items():
             for model in np.unique(status['model_id'].values):
                 query = status.query(f"model_id == {model}")['feasible'].values[0]
-                if stage == 1:
-                    if query:
-                        models_feasibility[model] = "Success"
-                    else:
+                if model not in models_feasibility:
+                    if stage == 1 and not query:
                         models_feasibility[model] = "Failure"
-                elif stage == 3 or stage == 4:
-                    if query:
-                        models_feasibility[model] = "Replan Success"
-                    else:
-                        models_feasibility[model] = "Replan Failure"
+                    elif stage == 3:
+                        if query:
+                            models_feasibility[model] = "Success"
+                    elif stage == 4:
+                        if query:
+                            models_feasibility[model] = "Replan Success"
+                        else:
+                            models_feasibility[model] = "Replan Failure"
         return figs, models_feasibility
     
     def bidirectional(self, path_id):
