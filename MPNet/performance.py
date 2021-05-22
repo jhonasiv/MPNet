@@ -47,8 +47,10 @@ def run(args):
     datasets = {}
     dataset_mapping = {}
     for n, model in enumerate(args.pnet):
-        pnets.append(PNet.load_from_checkpoint(model))
-        enet_ckpt = pnets[-1].training_config['enet']
+        pnet = PNet.load_from_checkpoint(model)
+        pnet.freeze()
+        pnets.append(pnet)
+        enet_ckpt = pnet.training_config['enet']
         enet_key = os.path.basename(enet_ckpt)
         if enet_key not in datasets:
             datasets[enet_key] = loader(enet_ckpt, f"{project_path}/valEnv", 110, 0, 1, True)
@@ -100,7 +102,7 @@ def run(args):
                     selected_results[selected_id] = {"Success"       : [], "Failure": [], "Replan Success": [],
                                                      "Replan Failure": []}
                 start = time()
-                result, path = plan(pnet, envs[env_id], data_input)
+                result, path = plan(pnet, envs[env_id], data_input, 80)
                 duration = time() - start
                 results["seen" if env_id < 100 else "unseen"][result] += 1
                 results["Time"]["Total"].append(duration)
