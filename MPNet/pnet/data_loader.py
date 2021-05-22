@@ -28,7 +28,6 @@ class PNetDataset(Dataset, ABC):
             for env_name in envs:
                 env_idx = int(''.join(filter(str.isdigit, env_name)))
                 for _, _, files in os.walk(f"{folder}/{env_name}"):
-                    files = sorted(files, key=lambda x: int(''.join(filter(str.isdigit, x))))
                     for filename in files:
                         path = np.fromfile(f"{folder}/{env_name}/{filename}", dtype=float).reshape((-1, 2))
                         for n in range(len(path) - 1):

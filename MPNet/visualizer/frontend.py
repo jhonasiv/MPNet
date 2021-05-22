@@ -1,4 +1,3 @@
-import multiprocessing as mp
 import os
 
 import dash
@@ -98,17 +97,10 @@ class DashApp:
                 self.slide_update,
                 self.manual_update,
                 ])
-        self.event = mp.Event()
-        self.event.set()
     
     def new_path(self, path_id):
-        if not self.event.is_set():
-            self.event.wait()
-        else:
-            self.event.clear()
-            results = self.vis.update_stages(path_id)
-            self.stage_figures, self.status[path_id] = results
-            self.event.set()
+        results = self.vis.update_stages(path_id)
+        self.stage_figures, self.status[path_id] = results
     
     def run(self):
         app.run_server(debug=True)

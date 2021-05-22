@@ -61,30 +61,22 @@ def lvc(path, env):
     return path
 
 
-# def remove_invalid_beacon_states(path, env):
-#     new_path = []
-#     for state in path:
-#         if not is_in_collision(state, env):
-#             new_path.append(state)
-#         else:
-#             try:
-#                 new_path[-1] = np.mean([new_path[-1], new_path[-2]], axis=0)
-#             except IndexError:
-#                 pass
-#     for n in range(len(new_path) - 1, 0, -1):
-#         if is_in_collision(new_path[n], env):
-#             try:
-#                 new_path[n + 1] = np.mean([new_path[n + 1], new_path[n + 2]], axis=0)
-#             except IndexError:
-#                 pass
-#     new_path = np.array(new_path)
-#     return new_path
-
 def remove_invalid_beacon_states(path, env):
     new_path = []
     for state in path:
         if not is_in_collision(state, env):
             new_path.append(state)
+        else:
+            try:
+                new_path[-1] = np.mean([new_path[-1], new_path[-2]], axis=0)
+            except IndexError:
+                pass
+    for n in range(len(new_path) - 1, 0, -1):
+        if is_in_collision(new_path[n], env):
+            try:
+                new_path[n + 1] = np.mean([new_path[n + 1], new_path[n + 2]], axis=0)
+            except IndexError:
+                pass
     new_path = np.array(new_path)
     return new_path
 
@@ -113,10 +105,10 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=10):
         replanned_path = np.array(replanned_path)
         filtered_path, indexes = np.unique(replanned_path, axis=0, return_index=True)
         filtered_path = filtered_path[np.argsort(indexes)]
-        feasible = feasibility_check(filtered_path, env)
+        lvc_replanned_path = lvc(filtered_path, env)
+        lvc_replanned_path = np.array(lvc_replanned_path)
+        feasible = feasibility_check(lvc_replanned_path, env)
         if feasible:
-            lvc_replanned_path = lvc(filtered_path, env)
-            lvc_replanned_path = np.array(lvc_replanned_path)
             path = lvc_replanned_path
             break
         else:
