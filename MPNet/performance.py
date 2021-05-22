@@ -95,7 +95,7 @@ def run(args):
         
         try:
             paths = pd.read_json(f"{project_path}/{args.output}/paths.json", orient='table')
-        except FileNotFoundError:
+        except ValueError:
             paths = pd.DataFrame([], columns=['seen', 'model', 'id', 'env_id', 'result', 'initial', 'goal', 'path'])
             paths = paths.set_index(['model', 'id'])
         for env_id, mapping in overall_data.items():
