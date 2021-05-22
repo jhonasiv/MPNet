@@ -69,7 +69,7 @@ def run(args):
         data = pd.DataFrame(dataset.path_files, columns=["Env ID", "Path", "State ID"])
         data['index'] = data.index
         data = data[data["State ID"] == 0].drop(columns=["State ID"])
-
+        
         try:
             with open(f"{project_path}/{args.output}/selected.json", "r") as f:
                 selected = json.load(f)
@@ -90,13 +90,16 @@ def run(args):
             results = {"seen": {"Success": 0, "Failure": 0, "Replan Success": 0, "Replan Failure": 0
                                 },
                        "unseen": {"Success": 0, "Failure": 0, "Replan Success": 0, "Replan Failure": 0,
-                                  }, "Paths": {}, "Time": {"Total"         : [], "Success": [], "Failure": [],
-                                                           "Replan Success": [], "Replan Failure": []}}
+                                  }, "Time": {"Total"         : [], "Success": [], "Failure": [],
+                                              "Replan Success": [], "Replan Failure": []}}
         
+        try:
+            paths = pd.read_json(f"{project_path}/{args.output}/paths.json", orient='table')
+        except FileNotFoundError:
+            paths = pd.DataFrame([], columns=['seen', 'model', 'id', 'env_id', 'result', 'initial', 'goal', 'path'])
+            paths = paths.set_index(['model', 'id'])
         for env_id, mapping in overall_data.items():
-            if str(env_id) not in results["Paths"]:
-                results['Paths'][str(env_id)] = []
-            start_idx = len(results["Paths"][str(env_id)])
+            start_idx = len(paths.query(f'env_id == {env_id}'))
             for data_input, selected_id in zip(mapping["input"][start_idx:], mapping["selected_ids"][start_idx:]):
                 if selected_id not in selected_results:
                     selected_results[selected_id] = {"Success"       : [], "Failure": [], "Replan Success": [],
@@ -107,8 +110,14 @@ def run(args):
                 results["seen" if env_id < 100 else "unseen"][result] += 1
                 results["Time"]["Total"].append(duration)
                 results["Time"][result].append(duration)
-                results["Paths"][str(env_id)].append(selected_id)
+                
+                paths = paths.append(pd.DataFrame(
+                        [[env_id < 100, name, selected_id, env_id, result, data_input[-4:-2], data_input[-2:], path]],
+                        columns=['seen', 'model', 'id', 'env_id', 'result', 'initial', 'goal', 'path']).set_index(
+                        ['model', 'id']))
+                
                 selected_results[selected_id][result].append(name)
+            paths.to_json(f"{project_path}/{args.output}/paths.json", default_handler=str, orient='table')
             with open(f"{project_path}/{args.output}/{name}.json", "w") as f:
                 json.dump(results, f)
             with open(f"{project_path}/{args.output}/selected_results.json", "w") as f:
