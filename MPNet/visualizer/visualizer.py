@@ -32,6 +32,8 @@ class Visualizer:
         
         self.env_centers = load_perms(110, 0)
         
+        
+        
         self.stages_cbs = {0: self.set_env, 1: self.bidirectional, 2: self.connection, 3: self.lvc,
                            4: self.replan, 5: self.final_path}
     

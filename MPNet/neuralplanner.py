@@ -111,6 +111,8 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=12):
         else:
             path = np.array(filtered_path)
         path = remove_invalid_beacon_states(path, env)
+    if not feasible:
+        path = np.array(filtered_path)
     return feasible, path
 
 
@@ -157,21 +159,31 @@ def bidirectional_planner(pnet, env, model_input):
     return target_reached, path_1, path_2
 
 
-def plan(pnet, env, data_input):
+def plan(pnet, env, data_input, detailed_results=False):
     env = env_npy_to_polygon(env)
     target_reached, path_1, path_2 = bidirectional_planner(pnet, env, data_input)
     
+    path = np.concatenate([path_1, path_2[::-1]])
     if target_reached:
-        path = np.concatenate([path_1, path_2[::-1]])
-        path = np.array(lvc(path, env))
-        feasible = feasibility_check(path, env)
+        lvc_path = np.array(lvc(path, env))
+        feasible = feasibility_check(lvc_path, env)
         if not feasible:
-            result, replanned_path = replan_path(path, env, data_input, pnet)
-            return f"Replan {'Success' if result else 'Failure'}", replanned_path
+            result, replanned_path = replan_path(lvc_path, env, data_input, pnet)
+            if not detailed_results:
+                return f"Replan {'Success' if result else 'Failure'}", replanned_path
+            else:
+                final_path = lvc(replanned_path, env)
+                return f"Replan {'Success' if result else 'Failure'}", path, lvc_path, replanned_path, final_path
         else:
-            return "Success", path
+            if not detailed_results:
+                return "Success", path
+            else:
+                return "Success", path, lvc_path, None, None
     else:
-        return "Failure", None
+        if not detailed_results:
+            return "Failure", None
+        else:
+            return "Failure", path, None, None, None
 
 
 def env_npy_to_polygon(env):

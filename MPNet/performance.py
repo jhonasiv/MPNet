@@ -95,7 +95,8 @@ def run(args):
         try:
             paths = pd.read_json(f"{project_path}/{args.output}/paths.json", orient='table')
         except ValueError:
-            paths = pd.DataFrame([], columns=['seen', 'model', 'id', 'env_id', 'result', 'initial', 'goal', 'path'])
+            paths = pd.DataFrame([], columns=['seen', 'model', 'id', 'env_id', 'result', 'initial', 'goal', 'bidir',
+                                              'lvc', 'replan', 'final'])
             paths = paths.set_index(['model', 'id'])
         for env_id, mapping in overall_data.items():
             start_idx = len(paths.query(f'env_id == {env_id} and model == "{name}"'))
@@ -104,16 +105,18 @@ def run(args):
                     selected_results[selected_id] = {"Success"       : [], "Failure": [], "Replan Success": [],
                                                      "Replan Failure": []}
                 start = time()
-                result, path = plan(pnet, envs[env_id], data_input )
+                result, path, lvc_path, replanned, final_path = plan(pnet, envs[env_id], data_input,
+                                                                     detailed_results=True)
                 duration = time() - start
                 results["seen" if env_id < 100 else "unseen"][result] += 1
                 results["Time"]["Total"].append(duration)
                 results["Time"][result].append(duration)
                 
                 paths = paths.append(pd.DataFrame(
-                        [[env_id < 100, name, selected_id, env_id, result, data_input[-4:-2], data_input[-2:], path]],
-                        columns=['seen', 'model', 'id', 'env_id', 'result', 'initial', 'goal', 'path']).set_index(
-                        ['model', 'id']))
+                        [[env_id < 100, name, selected_id, env_id, result, data_input[-4:-2], data_input[-2:], path,
+                          lvc_path, replanned, final_path]],
+                        columns=['seen', 'model', 'id', 'env_id', 'result', 'initial', 'goal', 'bidir',
+                                 'lvc', 'replan', 'final']).set_index(['model', 'id']))
                 
                 selected_results[selected_id][result].append(name)
             paths.to_json(f"{project_path}/{args.output}/paths.json", default_handler=str, orient='table')
