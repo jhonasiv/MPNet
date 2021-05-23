@@ -6,11 +6,6 @@ import numpy as np
 import torch
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 
-from MPNet.enet import data_loader as ae_dl
-from MPNet.enet.CAE import ContractiveAutoEncoder
-from MPNet.pnet.data_loader import loader
-from MPNet.pnet.model import PNet
-
 # from MPNet.visualizer.visualizer import plot_path
 
 project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
@@ -111,6 +106,8 @@ def replan_path(previous_path, env, data_input, pnet, num_tries=12):
         if feasible:
             path = lvc_replanned_path
             break
+        elif not target_reached:
+            return False, lvc_replanned_path
         else:
             path = np.array(filtered_path)
         path = remove_invalid_beacon_states(path, env)
@@ -127,13 +124,13 @@ def bidirectional_replan_setup(env, start_point, goal_point, model_input):
     return steerable, start, goal
 
 
-def bidirectional_planning(pnet, origin, goal, env):
+def bidirectional_planning(pnet, origin, goal, env, steps=100):
     result_1 = deepcopy(origin[-4:-2])
     result_2 = deepcopy(goal[-4:-2])
     path_1, path_2 = [result_1.numpy()], [result_2.numpy()]
     tree, target_reached = False, False
     step = 0
-    while not target_reached and step < 100:
+    while not target_reached and step < steps:
         step += 1
         if not tree:
             result_1 = pnet(origin)
@@ -197,74 +194,6 @@ def env_npy_to_polygon(env):
     return env
 
 
-def train(pnet_path, perm, data_input, num_trajs):
-    pnet = PNet.load_from_checkpoint(pnet_path)
-    pnet.freeze()
-    path = []
-    for n in range(num_trajs):
-        target_reached, path_1, path_2 = bidirectional_planner(pnet, perm, data_input)
-        
-        if target_reached:
-            for p1 in path_1:
-                path.append(p1)
-            for p2 in path_2[::-1]:
-                path.append(p2)
-            path = np.array(path)
-            path = np.array(lvc(path, perm))
-            indicator = feasibility_check(path, perm)
-            if not indicator:
-                sp = 0
-                indicator = 0
-                path_before_replan = path
-                while not indicator and sp < 20:
-                    sp = sp + 1
-                    path = replan_path(path, perm, origin, pnet)  # replanning at coarse level
-                    if path:
-                        path = lvc(path, perm)
-                        indicator = feasibility_check(path, perm)
-                        
-                        if not indicator and sp == 20:
-                            print("Replanned path invalid")
-                            return path, path_before_replan
-                        elif indicator:
-                            return path, path_before_replan
-                else:
-                    print("Replanning failed")
-                    return path, path_before_replan
-            else:
-                return path
-        else:
-            print("Target not reached!")
-            return 0
-
-
-def main(args):
-    perms = ae_dl.load_perms(110, 0)
-    
-    cae = ContractiveAutoEncoder.load_from_checkpoint(args.enet)
-    cae.freeze()
-    test_data = loader(cae, f"{project_path}/valEnv", 110, 0, 1, num_workers=4, shuffle=False, get_dataset=True)
-    random_path_idx = np.random.choice(len(test_data), 1)[0]
-    data_input, _, target_path, chosen_env = test_data[random_path_idx, True]
-    data_input[-4:-2] = torch.from_numpy(target_path[0])
-    
-    perm = perms[chosen_env]
-    path = train(args.pnet, perm, data_input, args.num_trajs)
-    if isinstance(path, tuple):
-        path, before_replanning = path
-        path = np.array(path)
-        before_replanning = np.array(before_replanning)
-        plot_path(perm, path, target_path, "Replanned")
-        
-        print("Replanning Result")
-        plot_path(perm, before_replanning, target_path, "Before Replanning")
-    elif not isinstance(path, int):
-        path = np.array(path)
-        plot_path(perm, path, target_path)
-    
-    breakpoint()
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--pnet", default="", type=str)
@@ -273,4 +202,3 @@ if __name__ == '__main__':
     parser.add_argument("--num_trajs", default=1, type=int)
     
     args = parser.parse_args()
-    main(args)

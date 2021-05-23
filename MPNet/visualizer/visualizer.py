@@ -39,7 +39,7 @@ class Visualizer:
         cached_datasets = {}
         for n, model in enumerate(self.model_ckpts):
             pnet = PNet.load_from_checkpoint(model)
-            pnet.freeze()
+            # pnet.freeze()
             frame = pd.DataFrame([[model, pnet, n]], columns=["ckpt", "model", "index"])
             frame = frame.set_index("ckpt")
             try:
