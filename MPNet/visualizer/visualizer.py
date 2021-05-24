@@ -18,6 +18,7 @@ project_path = f"{os.path.abspath(__file__).split('mpnet')[0]}mpnet"
 class Visualizer:
     def __init__(self):
         self.model_ckpts = []
+        self.model_basenames = []
         self.models = pd.DataFrame([], columns=["ckpt", "model", "index"])
         self.models = self.models.set_index("ckpt")
         self.datasets = {}
@@ -34,37 +35,61 @@ class Visualizer:
         
         self.env_centers = load_perms(110, 0)
         
-        self.paths = pd.read_json(f"{project_path}/data/paths.json")
+        self.paths = pd.read_json(f"{project_path}/data/paths.json", orient='table')
         
         self.stages_cbs = {0: self.set_env, 1: self.bidirectional, 2: self.connection, 3: self.lvc,
                            4: self.replan, 5: self.final_path}
     
+    def get_available_envs(self):
+        envs = self.paths["env_id"].unique()
+        return envs
+    
+    def get_available_paths(self, env):
+        paths = self.paths.query(f"env_id == {env}").reset_index(1)['id'].unique()
+        return paths
+    
     def process(self, path_id):
-        data = self.paths.query(f"id == {path_id}")
+        data = self.paths.query(f"id == {path_id} and model in {self.model_basenames}")
         env_figure = self.set_env(path_id)
         bidir_figure = self.make_fig(data, path_id, "bidir", 1, lines=False, title="Bidirectional Planner")
         connection_figure = self.make_fig(data, path_id, "bidir", 2, lines=True, title="States Connection")
         lvc_figure = self.make_fig(data, path_id, "lvc", 3, lines=True, title="Lazy Vertex Contraction")
         replan_figure = self.make_fig(data, path_id, "replan", 4, lines=True, title="Replanning")
         final_figure = self.make_fig(data, path_id, "final", 5, lines=True, title="Final Path")
-        results_idxs = [(model, path_id) for model in self.model_ckpts]
+        results_idxs = [(model, path_id) for model in self.model_basenames]
         results = data.loc[results_idxs]['result'].to_list()
-        return [env_figure, bidir_figure, connection_figure, lvc_figure, replan_figure, final_figure], results
+        return {0: env_figure, 1: bidir_figure, 2: connection_figure, 3: lvc_figure, 4: replan_figure,
+                5: final_figure}, results
     
     def make_fig(self, data, path_id, column, stage, lines=False, title=""):
-        fig = go.Figure(self.env_figs["env_id"].iloc[0])
+        env_id = data["env_id"][0]
+        fig = go.Figure(self.env_figs.loc[env_id][0])
         path_info = data[column]
         temp_df = pd.DataFrame([], columns=["model", "x", "y"])
-        for idx, row in path_info:
-            p = row[column]
-            temp_df = temp_df.append(pd.DataFrame([[idx[0], p[:, 0], p[:, 1]]], columns=["model", "x", "y"]),
+        for idx, row in path_info.iteritems():
+            p = np.array(row)
+            if p.size > 1:
+                temp_df = temp_df.append(pd.DataFrame([[idx[0], x, y] for x, y in p], columns=["model", "x",
+                                                                                               "y"]),
+                                         ignore_index=True)
+        nan_stage = data[data[column].isna()]
+        for idx, row in nan_stage.iterrows():
+            result = row['result']
+            if result == 'Success':
+                p = np.array(row['lvc'])
+            else:
+                p = np.array(row['bidir'])
+            temp_df = temp_df.append(pd.DataFrame([[idx[0], x, y] for x, y in p], columns=["model", "x", "y"]),
                                      ignore_index=True)
-        self.add_to_figure(fig, path_id, path_info, temp_df, stage, lines=lines, title=title)
-        return self.stage_figs.query(f"stage == {stage} and path_id == {path_id}")
+        
+        self.add_to_figure(fig, path_id, data["bidir"], temp_df, stage, lines=lines, title=title)
+        return self.stage_figs.query(f"stage == {stage} and path_id == {path_id}")["figure"].item()
     
-    def add_to_figure(self, fig, path_id, path_info, temp_df, stage, lines=False, title=""):
+    def add_to_figure(self, fig, path_id, start_n_goal_info, temp_df, stage, lines=False, title=""):
+        start_n_goal_info = np.array(start_n_goal_info[0])
         scatter = px.scatter(temp_df, x="x", y="y", color="model")
-        self.update_figure(fig, scatter, start=path_info[0], goal=path_info[1], lines=lines, title=title)
+        self.update_figure(fig, scatter, start=start_n_goal_info[0], goal=start_n_goal_info[-1], lines=lines,
+                           title=title)
         new_entry = pd.DataFrame([[stage, path_id, fig]], columns=["stage", "path_id", "figure"])
         new_entry = new_entry.set_index(["stage", "path_id"])
         try:
@@ -104,7 +129,7 @@ class Visualizer:
     def set_env(self, path_id):
         # self.set_input(path_id)
         # env_id = self.data_input.loc[0, path_id]["env_id"]
-        env_id = self.paths.query(f"path_id == {path_id}").iloc[0]['env_id']
+        env_id = self.paths.query(f"id == {path_id}").iloc[0]['env_id']
         obstacles = []
         for obstacle in self.env_centers[env_id]:
             x, y = obstacle
@@ -122,11 +147,15 @@ class Visualizer:
             obstacle_fig.update_yaxes(range=[-20, 20])
             new_entry = pd.DataFrame([[env_id, obstacle_fig]], columns=["env_id", "figure"])
             new_entry = new_entry.set_index("env_id")
-            self.env_figs = self.env_figs.append(new_entry, verify_integrity=True)
-        return self.env_figs.loc[env_id]
+            try:
+                self.env_figs = self.env_figs.append(new_entry, verify_integrity=True)
+            except:
+                pass
+        return self.env_figs.loc[env_id]['figure']
     
     def update_models(self, ckpts):
         self.model_ckpts = ckpts
+        self.model_basenames = [os.path.basename(ckpt).split('.')[0] for ckpt in ckpts]
         # self.load_dataset()
     
     def update_stages(self, path_id):
@@ -277,8 +306,9 @@ class Visualizer:
             scatter.update_traces(dict(mode="lines+markers"))
         fig.add_traces(scatter.data)
         fig.add_traces(
-                [go.Scatter(x=start[0], y=start[1], mode="markers", marker=dict(color="green", size=20), name="Origin"),
-                 go.Scatter(x=goal[0], y=goal[1], mode="markers", marker=dict(color="red", size=20),
+                [go.Scatter(x=[start[0]], y=[start[1]], mode="markers", marker=dict(color="green", size=20),
+                            name="Origin"),
+                 go.Scatter(x=[goal[0]], y=[goal[1]], mode="markers", marker=dict(color="red", size=20),
                             name="Goal")])
         fig.update_layout(dict(title=title))
     

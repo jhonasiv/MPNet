@@ -42,6 +42,12 @@ class DashApp:
                                                "marginLeft": '20px'})
         self.path_input = dcc.Input(id="path_input", type="number", placeholder="Set new PATH ID",
                                     style={"marginRight": "20px"}, debounce=True, disabled=True)
+        
+        envs = self.vis.get_available_envs()
+        
+        self.env_dropdown = dcc.Dropdown(id="env_dropdown", placeholder="Select an environment",
+                                         options=[{"label": e, "value": e} for e in envs],
+                                         style={"marginRight": "20px", "width": "100%"}, disabled=True)
         self.path_dropdown = dcc.Dropdown(id="path_dropdown", placeholder="Choose previously analysed path",
                                           style={"marginRight": "20px", "width": "100%"}, disabled=True)
         self.model_dropdown = dcc.Dropdown(id="model_dropdown", placeholder="Set analised models",
@@ -75,17 +81,18 @@ class DashApp:
         app.layout = html.Div([
                 html.H2("MPNet Execution Step by Step"),
                 html.Div([
-                        html.Div([self.path_input, self.path_dropdown, self.model_dropdown],
+                        html.Div([self.env_dropdown, self.path_dropdown, self.model_dropdown],
                                  style={"marginBottom"   : "10px", "display": 'flex', "align-items": "center",
                                         "justify-content": "flex-start"}),
-                        html.Div(id="buttons+feasible", children=[
-                                html.Div(id="buttons", children=[
-                                        html.Button("PLAY", id="play_but", n_clicks=0,
-                                                    style={"width"       : "100px", "textAlign": "center",
-                                                           "marginBottom": "20px"}),
-                                        self.pause_button, ], style={"display": "flex"}),
-                                ],
-                                 style={"display": "flex", "justify-content": "space-between", "paddingRight": "5px"}),
+                        # html.Div(id="buttons+feasible", children=[
+                        #         html.Div(id="buttons", children=[
+                        #                 html.Button("PLAY", id="play_but", n_clicks=0,
+                        #                             style={"width"       : "100px", "textAlign": "center",
+                        #                                    "marginBottom": "20px"}),
+                        #                 self.pause_button, ], style={"display": "flex"}),
+                        #         ],
+                        #          style={"display": "flex", "justify-content": "space-between", "paddingRight":
+                        #          "5px"}),
                         dcc.Tabs(id="stage_tabs", value="0", children=[
                                 dcc.Tab(label="Environment", value="0"),
                                 dcc.Tab(label="Bidirectional", value="1"),
@@ -102,13 +109,15 @@ class DashApp:
         self.event.set()
     
     def new_path(self, path_id):
-        if not self.event.is_set():
-            self.event.wait()
-        else:
-            self.event.clear()
-            results = self.vis.update_stages(path_id)
-            self.stage_figures, self.status[path_id] = results
-            self.event.set()
+        if path_id is not None:
+            if not self.event.is_set():
+                self.event.wait()
+            else:
+                self.event.clear()
+                self.stage_figures, self.status[path_id] = self.vis.process(path_id)
+                # results = self.vis.update_stages(path_id)
+                # self.stage_figures, self.status[path_id] = results
+                self.event.set()
     
     def run(self):
         app.run_server(debug=True)
@@ -139,17 +148,17 @@ def update_feasibility(value, style):
     for n, st in enumerate(style):
         st["background-color"] = "red" if 'Failure' in status[n] else "green"
         st["color"] = "white"
-    return list(status.values()), style
+    return status, style
 
 
-@app.callback(Output("slide_interval", "disabled"), Input("play_but", "n_clicks"), Input("pause_but", "n_clicks"),
-              prevent_initial_call=True)
-def change_slide_state(play, pause):
-    caller = [p['prop_id'] for p in dash.callback_context.triggered][0]
-    if 'play' in caller:
-        return False
-    elif 'pause' in caller:
-        return True
+# @app.callback(Output("slide_interval", "disabled"), Input("play_but", "n_clicks"), Input("pause_but", "n_clicks"),
+#               prevent_initial_call=True)
+# def change_slide_state(play, pause):
+#     caller = [p['prop_id'] for p in dash.callback_context.triggered][0]
+#     if 'play' in caller:
+#         return False
+#     elif 'pause' in caller:
+#         return True
 
 
 # @app.callback(Output({"type": "feasible_but", "index": MATCH}, "style"),
@@ -159,13 +168,13 @@ def change_slide_state(play, pause):
 #     return app_object.feasible_button_style
 
 
-@app.callback(Output("path_dropdown", "options"), Output("path_dropdown", "value"), Input("path_input", "value"),
-              State("path_dropdown", "options"), prevent_initial_call=True)
-def update_dropdown_options(value, options):
-    if options is None:
-        options = []
-    options.append({"label": f"{value}", "value": value})
-    return options, value
+# @app.callback(Output("path_dropdown", "options"), Output("path_dropdown", "value"), Input("path_input", "value"),
+#               State("path_dropdown", "options"), prevent_initial_call=True)
+# def update_dropdown_options(value, options):
+#     if options is None:
+#         options = []
+#     options.append({"label": f"{value}", "value": value})
+#     return options, value
 
 
 @app.callback(Output("status_div", "children"), Input("model_dropdown", "value"), prevent_initial_call=True)
@@ -183,16 +192,27 @@ def add_status(models):
     return children
 
 
-@app.callback(Output("path_input", "disabled"), Output("path_dropdown", "disabled"), Input("model_dropdown", "value"),
+@app.callback(Output("path_dropdown", "disabled"), Output("path_dropdown", "options"), Input("env_dropdown", "value"),
+              prevent_initial_call=True)
+def enable_path_selector(value):
+    if value is not None:
+        path_options = app_object.vis.get_available_paths(value)
+        options = [{"label": p, "value": p} for p in path_options]
+        return False, options
+    else:
+        return True, []
+
+
+@app.callback(Output("env_dropdown", "disabled"), Input("model_dropdown", "value"),
               prevent_initial_call=True)
 def enable_path_selector(ckpts):
     if not isinstance(ckpts, list):
         return dash.no_update
     if len(ckpts) > 0:
         app_object.vis.update_models(ckpts)
-        return False, False
+        return False
     else:
-        return True, True
+        return True
 
 
 if __name__ == '__main__':

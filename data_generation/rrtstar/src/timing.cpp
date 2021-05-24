@@ -286,9 +286,11 @@ int main(int argc, char **argv) {
 //				idx--;
 //			}
 		}
-		cout << "\n";
-		timingsJson[to_string(envId)] = timing;
-		timing.clear();
+		if (!timing.empty())
+		{
+			timingsJson[to_string(envId)] = timing;
+			timing.clear();
+		}
 
 		ofstream output(filepath + "/data/rrt_timings.json");
 		output << timingsJson;
