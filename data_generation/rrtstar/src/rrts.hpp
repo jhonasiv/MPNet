@@ -337,7 +337,6 @@ int RRTstar::Planner<State, Trajectory, System>::initialize() {
 	{
 		rootBackup = new Vertex<State, Trajectory, System>(*root);
 	}
-	cout << "RRT System Size " << sizeof(Vertex<State, Trajectory, System>) << endl;
 	// Delete all the vertices
 	for (typename std::list<Vertex<State, Trajectory, System> *>::iterator iter = listVertices.begin();
 	     iter != listVertices.end(); iter++)
@@ -369,7 +368,6 @@ int RRTstar::Planner<State, Trajectory, System>::initialize() {
 	lowerBoundCost = DBL_MAX;
 	lowerBoundVertex = NULL;
 
-	cout << "RRTs initialized\n";
 	return 1;
 }
 

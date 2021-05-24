@@ -87,11 +87,28 @@ int main(int argc, char **argv) {
 
 	vector < vector < pair < float, float>>>  perm = readCsv(&reader);
 	vector<float> timing;
+
+	json timingsJson;
+	try
+	{
+		ifstream timings(filepath + "/data/rrt_timings.json");
+		timingsJson = json::parse(timings);
+	}
+	catch (exception)
+	{
+	}
+
 	for (auto &el : envJson.items())
 	{
 		int envId = stoi(el.key());
+		cout << "\n\t ENV " << envId << "\n\n";
 
-		auto values = el.value();
+		cout << "Size: " << timingsJson[to_string(envId)].size() << endl;
+		size_t startIdx = timingsJson[to_string(envId)].size();
+
+		vector < vector < vector < float>>> values = el.value();
+
+		values = vector < vector < vector < float>>>(values.begin() + startIdx, values.end());
 
 		for (auto &trajectory: values)
 		{
@@ -254,7 +271,6 @@ int main(int argc, char **argv) {
 				}
 			}
 
-			cout << "iterations:" << k << endl;
 
 			// Run the algorithm for 10000 iteartions
 			list<double *> stateList;
@@ -270,13 +286,15 @@ int main(int argc, char **argv) {
 //				idx--;
 //			}
 		}
+		cout << "\n";
+		timingsJson[to_string(envId)] = timing;
+		timing.clear();
+
+		ofstream output(filepath + "/data/rrt_timings.json");
+		output << timingsJson;
+
+		output.close();
 	}
-	json timeJson(timing);
-
-	ofstream output(filepath + "/data/rrt_timings.json");
-	output << timeJson;
-
-	output.close();
 
 	return 0;
 
