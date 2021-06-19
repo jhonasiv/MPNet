@@ -99,7 +99,7 @@ class DashApp:
                                 dcc.Tab(id={"type": "tab", "index": 0}, label="Cenário", value="0"),
                                 dcc.Tab(id={"type": "tab", "index": 1}, label="Plan. Bidirecional", value="1"),
                                 # dcc.Tab(label="Conexão de Estados", value="2"),
-                                dcc.Tab(id={"type": "tab", "index": 2}, label="LSC", value="2"),
+                                dcc.Tab(id={"type": "tab", "index": 2}, label="Otimizador", value="2"),
                                 dcc.Tab(id={"type": "tab", "index": 3}, label="Replanejamento", value="3"),
                                 dcc.Tab(id={"type": "tab", "index": 4}, label="Traj. Final", value="4")
                                 ])], style={"margin-bottom": "15px", "margin-left": "40px", "margin-right": "40px"}),

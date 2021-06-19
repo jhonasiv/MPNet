@@ -224,23 +224,37 @@ class Visualizer:
                             pd.DataFrame([[2 * n + 1, p[0], p[1], "sigma 2"]], columns=["itt", "x", "y", "path"]))
         num_frames = temp_df["itt"].nunique()
         iterations = pd.unique(temp_df["itt"])
-        colors = {0: 'dodgerblue', 1: 'deeppink'}
+        colors = {0: 'darkturquoise', 1: 'orchid'}
         figs = []
         for itt in iterations:
             new_fig = go.Figure()
             data = temp_df.query(f"itt == {itt}")
             visible_figs = [True, True]
+            last_s1 = data.query(f"path == 'sigma 1'").iloc[-1]
+            last_s2 = data.query(f"path == 'sigma 2'").iloc[-1]
             for n, datum in data.iterrows():
                 if datum['path'] == "sigma 1":
-                    new_fig.add_trace(
-                            go.Scatter(x=[datum['x']], y=[datum['y']], marker={'color': colors[0], 'size': 15},
-                                       legendgroup=datum['path'], name=datum['path'], showlegend=visible_figs[0]))
-                    visible_figs[0] = False
+                    if np.all(datum == last_s1):
+                        new_fig.add_trace(
+                                go.Scatter(x=[datum['x']], y=[datum['y']], marker={'color': 'dodgerblue', 'size': 15,
+                                                                                   'line' : {'width': 3}},
+                                           legendgroup=datum['path'], name='Atual sigma 1'))
+                    else:
+                        new_fig.add_trace(
+                                go.Scatter(x=[datum['x']], y=[datum['y']], marker={'color': colors[0], 'size': 15},
+                                           legendgroup=datum['path'], name=datum['path'], showlegend=visible_figs[0]))
+                        visible_figs[0] = False
                 else:
-                    new_fig.add_trace(
-                            go.Scatter(x=[datum['x']], y=[datum['y']], marker={'color': colors[1], 'size': 15},
-                                       legendgroup=datum['path'], name=datum['path'], showlegend=visible_figs[1]))
-                    visible_figs[1] = False
+                    if np.all(datum == last_s2):
+                        new_fig.add_trace(
+                                go.Scatter(x=[datum['x']], y=[datum['y']], marker={'color': 'mediumvioletred',
+                                                                                   'size' : 15, 'line': {'width': 3}},
+                                           legendgroup=datum['path'], name='Atual sigma 2'))
+                    else:
+                        new_fig.add_trace(
+                                go.Scatter(x=[datum['x']], y=[datum['y']], marker={'color': colors[1], 'size': 15},
+                                           legendgroup=datum['path'], name=datum['path'], showlegend=visible_figs[1]))
+                        visible_figs[1] = False
             
             figs.append(new_fig)
         
@@ -250,7 +264,10 @@ class Visualizer:
     
     def lsc(self, data, path_id):
         env_id = data["env_id"][0]
-        path_info = np.array(data["lvc"].values.tolist()).reshape((-1, 2))
+        if not pd.isna(data['lvc']).item():
+            path_info = np.array(data["lvc"].values.tolist()).reshape((-1, 2))
+        else:
+            path_info = []
         path_before = np.array(data["bidir"].values.tolist()).reshape((-1, 2))
         temp_df = pd.DataFrame([], columns=["x", "y", "step"])
         
@@ -273,15 +290,17 @@ class Visualizer:
             new_fig = go.Figure()
             before_data = temp_df.query(f"itt == {itt} and step ==  'Antes'")
             lsc_data = temp_df.query(f"itt == {itt} and step ==  'LSC'")
+            if itt == 1:
+                colors[0] = 'rgba(30, 144, 255, 0.5)'
             new_fig.add_trace(
-                    go.Scatter(x=before_data['x'], y=before_data['y'], marker={'color': colors[0], 'size': 15},
-                               mode='lines+markers', name='Antes'))
+                    go.Scatter(x=before_data['x'], y=before_data['y'], marker={'color': colors[0], 'size': 15, },
+                               mode='lines+markers', name='Antes', line={'color': colors[0]}))
             new_fig.add_trace(go.Scatter(x=lsc_data['x'], y=lsc_data['y'], marker={'color': colors[1], 'size': 15},
-                                         mode='lines+markers', name='LSC', line=dict(dash='dash')))
+                                         mode='lines+markers', name='LSC'))
             figs.append(new_fig)
         
-        self.animation_figure_completing(figs, path_id, env_id, path_info[0], path_info[-1], "lvc",
-                                         title="Lazy States Contraction", lines=True)
+        self.animation_figure_completing(figs, path_id, env_id, path_before[0], path_before[-1], "lvc",
+                                         title="Otimizador de Trajetórias", lines=True)
         return self.stage_figs.query(f"stage == 'lvc' and path_id == {path_id}")["figure"].item(), num_frames
     
     def replan(self, data, path_id):
@@ -290,7 +309,11 @@ class Visualizer:
             path_info = np.array(data["replan"].values.tolist()).reshape((-1, 2))
         else:
             path_info = []
-        path_before = np.array(data["lvc"].values.tolist()).reshape((-1, 2))
+        if not pd.isna(data['lvc']).item():
+            path_before = np.array(data["lvc"].values.tolist()).reshape((-1, 2))
+        else:
+            path_before = np.array(data["bidir"].values.tolist()).reshape((-1, 2))
+        
         temp_df = pd.DataFrame([], columns=["itt", "x", "y", "step"])
         
         for n, p in enumerate(path_before):
@@ -312,9 +335,11 @@ class Visualizer:
             new_fig = go.Figure()
             lsc_data = temp_df.query(f"itt == {itt} and step ==  'LSC'")
             replan_data = temp_df.query(f"itt == {itt} and step ==  'Replanejado'")
+            if itt == 1:
+                colors[0] = 'rgba(30, 144, 255, 0.5)'
             new_fig.add_trace(
                     go.Scatter(x=lsc_data['x'], y=lsc_data['y'], marker={'color': colors[0], 'size': 15},
-                               mode='lines+markers', name='LSC'))
+                               mode='lines+markers', name='LSC', line={'color': colors[0]}))
             new_fig.add_trace(
                     go.Scatter(x=replan_data['x'], y=replan_data['y'], marker={'color': colors[1], 'size': 15},
                                mode='lines+markers', name='Replanejado'))
@@ -328,8 +353,10 @@ class Visualizer:
         env_id = data["env_id"][0]
         if not pd.isna(data['replan']).item():
             path_info = np.array(data["final"].values.tolist()).reshape((-1, 2))
-        else:
+        elif not pd.isna(data['lvc']).item():
             path_info = np.array(data["lvc"].values.tolist()).reshape((-1, 2))
+        else:
+            path_info = np.array(data["bidir"].values.tolist()).reshape((-1, 2))
         temp_df = pd.DataFrame([], columns=["x", "y", "step"])
         
         for n, p in enumerate(path_info):
